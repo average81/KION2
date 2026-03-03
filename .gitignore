@@ -1,0 +1,9 @@
+.venv/
+
+# Папки в репо есть, содержимое — нет
+video_samples/*
+!video_samples/.gitkeep
+models/*
+!models/.gitkeep
+outputs/*
+!outputs/.gitkeep
