@@ -4,9 +4,15 @@ from pathlib import Path
 
 import numpy as np
 from ultralytics import YOLO
+import torch
+
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+print("Using device:", DEVICE)
+
 
 # ---------- настройки ----------
-VIDEO_PATH = "mister-i-missis-smit-2005_1.mkv"          # исходный ролик
+# VIDEO_PATH = "video_samples/mister-i-missis-smit-2005_1.mkv" # исходный ролик
+VIDEO_PATH = "video_samples/potter1 01.mp4"         
 OUT_VIDEO_PATH = "outputs/output_skeletons.mp4"
 OUT_JSON_PATH = "outputs/skeletons.json"
 MODEL_PATH = "models/yolov8n-pose.pt"    # ммодель yolov8s-pose.pt
@@ -15,16 +21,23 @@ CONF_THRES = 0.25                 # порог уверенности детек
 # -------------------------------
 
 # 1. загрузка модели
-model = YOLO(MODEL_PATH)
+model = YOLO(MODEL_PATH).to(DEVICE)
 
 # 2. открываем видео
 cap = cv2.VideoCapture(VIDEO_PATH)
+if not cap.isOpened():
+    raise RuntimeError("Не удалось открыть входное видео")
+
 fps = cap.get(cv2.CAP_PROP_FPS)
 w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
 fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+
 writer = cv2.VideoWriter(OUT_VIDEO_PATH, fourcc, fps, (w, h))
+if not writer.isOpened():
+    raise RuntimeError("Не удалось открыть VideoWriter для OUT_VIDEO_PATH")
+
 
 all_frames = []   # сюда будем складывать скелеты для JSON
 frame_idx = 0

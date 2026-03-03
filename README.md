@@ -2,6 +2,56 @@
 
 Подбор и обучение моделей, которые по позам (pose estimation) актёров в видео определяют их действия на предложенном датасете.
 
+Установите зависимости:
+   
+   **Установите PyTorch с нужной версией CUDA:**
+   
+   ```bash
+   # Проверьте версию CUDA: 
+   nvidia-smi
+   
+   # Для CUDA 13.0:
+   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130
+   
+   # Для CUDA 12.8:
+   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+   
+   # Для CUDA 12.6:
+   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+   
+   # Для CUDA 12.1:
+   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+   
+   # Для CUDA 11.8:
+   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+   
+   # Для CPU (если нет GPU):
+   pip install torch torchvision
+   ```
+   
+   **Важно:** 
+   - Сначала установите PyTorch, затем остальные зависимости
+   - Для актуальной информации о совместимых версиях используйте официальный сайт: https://pytorch.org/get-started/locally/
+
+
+```bash
+pip install -r requirements.txt
+```
+
+Для работы необходим ffmpeg
+Установка Ubuntu Linux: 
+
+```
+sudo apt update
+sudo apt install ffmpeg
+```
+Установка Windows10/11: 
+
+```
+winget install ffmpeg
+```
+
+
 Основные варианты для pose estimation
 
 MediaPipe / BlazePose (Google)
