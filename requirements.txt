@@ -28,9 +28,6 @@ requests==2.32.5
 scipy==1.17.1
 six==1.17.0
 sympy==1.14.0
-torch==2.10.0+cu130
-torchvision==0.25.0+cu130
-triton==3.6.0
 typing_extensions==4.15.0
 ultralytics==8.4.19
 ultralytics-thop==2.0.18
