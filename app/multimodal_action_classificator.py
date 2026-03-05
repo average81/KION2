@@ -45,3 +45,9 @@ class MultimodalActionClassificator:
                         f"dynamic_action_period={self.dynamic_action_period}, "
                         f"verbose={self.verbose}")
 
+    def classify(self, poses):
+        """
+        Заглушка: пока ничего не классифицирует.
+        Возвращает пустой список.
+        """
+        self.logger.info(f"Classifying {len(poses)} poses (stub, returns empty list).")

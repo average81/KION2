@@ -47,3 +47,15 @@ class PoseActionClassificator:
                         f"static_action_period={self.static_action_period}, "
                         f"dynamic_action_period={self.dynamic_action_period}, "
                         f"verbose={self.verbose}")
+
+    def classify(self, poses): #Заглушка
+        self.logger.info(f"Classifying {len(poses)} poses (stub).")
+        return [
+            {
+                "frame_idx": p["frame_idx"],
+                "person_id": p["person_id"],
+                "action": "unknown",
+                "score": 0.0,
+            }
+            for p in poses
+        ]
