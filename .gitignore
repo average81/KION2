@@ -7,3 +7,5 @@ models/*
 !models/.gitkeep
 outputs/*
 !outputs/.gitkeep
+/tests/video_samples
+/tests/outputs

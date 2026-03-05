@@ -6,11 +6,6 @@ from app.video_processor import VideoProcessor
 
 logger = logging.getLogger(__name__)
 
-default_config = {
-    "pose_ext_model": None,
-    "pose_action_model": None,
-    "multimodal_model": None}
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("input_file", type=str, help="Input video file to process.")

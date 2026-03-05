@@ -11,6 +11,7 @@ import numpy as np
 
 default_config = {
     "pose_ext_model": "YOLOv8-Pose-N",  # было "OpenPose"
+    "pose_ext_th": 0.8,
     "pose_action_model": "LSTM_ActionNet",
     "multimodal_model": "TST",
     "video_decimation": 1,
@@ -52,12 +53,17 @@ class VideoProcessor:
             action_config['dynamic_act_frames'] = self.config['dynamic_act_frames']
         else:
             action_config['dynamic_act_frames'] = default_config['dynamic_act_frames']
+        if "pose_ext_th" in self.config:
+            action_config['pose_ext_th'] = self.config['pose_ext_th']
+        else:
+            action_config['pose_ext_th'] = default_config['pose_ext_th']
 
         if self.config["pose_ext_model"] != 'None' and self.config['pose_action_model'] is not None:
             self.pose_extractor = PoseEstimator(
                 model_name=self.config["pose_ext_model"],
                 frame_sampling_rate=self.config["video_decimation"],
                 verbose=self.verbose,
+                threshold = self.config.get("pose_ext_th",0.8)
             )
 
             self.pose_action_classifier = PoseActionClassificator(
@@ -104,8 +110,7 @@ class VideoProcessor:
         # 1. Извлечение поз из видео
         if self.pose_extractor is not None:
             poses = self.pose_extractor.estimate_video(
-                self.input_file,
-                conf=self.config.get("pose_conf_thres", 0.25),
+                self.input_file
             )
             results["raw_poses"] = poses
 
