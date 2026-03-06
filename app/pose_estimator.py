@@ -96,24 +96,25 @@ class PoseEstimator:
                 frame_idx += 1
                 continue
 
-            # Запуск модели (YOLO сам вернёт объект Results с keypoints)
+            # Запуск модели
             results = self.model.detect(frame)
 
-            for r in results:
-                if r.keypoints is None:
+            for result in results:
+                if result.keypoints is None:
                     continue
 
-                # r.keypoints.data: tensor (num_persons, K, 3) -> numpy
-                kps = r.keypoints.data.cpu().numpy()
+                # result.keypoints: numpy array (num_persons, K, 3) -> numpy
+                kps = result.keypoints
 
-                for person_idx, kp in enumerate(kps):
-                    poses.append(
-                        {
-                            "frame_idx": frame_idx,
-                            "person_id": person_idx,
-                            "keypoints": kp,  # (K, 3): x, y, conf
-                        }
-                    )
+                poses.append(
+                    {
+                        "box":result.box ,
+                        "frame_idx": frame_idx,
+                        "person_id": result.id,
+                        "keypoints": result.keypoints,  #  x, y
+                        "keypoints_conf": result.keypoints_conf
+                    }
+                )
 
             frame_idx += 1
 
