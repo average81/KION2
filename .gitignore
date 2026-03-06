@@ -9,3 +9,5 @@ outputs/*
 !outputs/.gitkeep
 /tests/video_samples
 /tests/outputs
+__pycache__/
+*.pyc
