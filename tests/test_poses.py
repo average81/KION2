@@ -10,13 +10,21 @@ import numpy as np
 from pathlib import Path
 import utils.utils as utils
 
+# Определяем, запущен ли скрипт из IDE или из командной строки
+def is_running_in_ide():
+    """Определяет, запущен ли скрипт в среде IDE."""
+    return 'PYCHARM_HOSTED' in os.environ or 'VSCODE_PID' in os.environ
+
 from app.video_processor import VideoProcessor
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-
+    if is_running_in_ide():
+        input_file = "video_samples/potter1 01.mp4"
+    else:
+        input_file="tests/video_samples/potter1 01.mp4"
     vp = VideoProcessor(
-        input_file="tests/video_samples/potter1 01.mp4",      # путь к короткому видео
+        input_file=input_file,      # путь к короткому видео
         output_dir="outputs",
         verbose=True,
         config_path="config.yml",   # можно не создавать заранее, он сам сохранится
