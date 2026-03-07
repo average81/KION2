@@ -1,6 +1,8 @@
 import yaml
 import numpy as np
 from models.pose_format import Pose
+from pathlib import Path
+import json
 
 #Открытие файла настроек в  yaml
 def open_yaml(file):
@@ -83,3 +85,11 @@ def read_ntu_pose_file(file_path, max_bodies=4, njoints=25):
             poses.append(pose)
     
     return poses
+
+# Чтение поз нашего формата
+def load_own_poses(json_path: str | Path):
+    json_path = Path(json_path)
+    data = None
+    with json_path.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+    return data
