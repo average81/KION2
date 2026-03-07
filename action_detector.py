@@ -24,3 +24,4 @@ if __name__ == "__main__":
         exit()
     processor=VideoProcessor(args.input_file,output_dir=args.output_dir,verbose = args.verbose,
                              config_path =args.config_path)
+    processor.process()

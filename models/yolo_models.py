@@ -5,23 +5,23 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Сопоставление индексов суставов YOLO с индексами в JOINTS
 YOLO_JOINTS_MAPPING = {
-    0: 26,  # Nose -> nose
-    1: 27,  # Left Eye -> left_eye
-    2: 28,  # Right Eye -> right_eye
-    3: 29,  # Left Ear -> left_ear
-    4: 30,  # Right Ear -> right_ear
-    5: 5,   # Left Shoulder -> left_shoulder
-    6: 9,   # Right Shoulder -> right_shoulder
-    7: 6,   # Left Elbow -> left_elbow
-    8: 10,  # Right Elbow -> right_elbow
-    9: 7,   # Left Wrist -> left_wrist
-    10: 11, # Right Wrist -> right_wrist
-    11: 13, # Left Hip -> left_hip
-    12: 17, # Right Hip -> right_hip
-    13: 14, # Left Knee -> left_knee
-    14: 18, # Right Knee -> right_knee
-    15: 15, # Left Ankle -> left_ankle
-    16: 19  # Right Ankle -> right_ankle
+    0: 25,  # Nose -> nose
+    1: 26,  # Left Eye -> left_eye
+    2: 27,  # Right Eye -> right_eye
+    3: 28,  # Left Ear -> left_ear
+    4: 29,  # Right Ear -> right_ear
+    5: 4,   # Left Shoulder -> left_shoulder
+    6: 8,   # Right Shoulder -> right_shoulder
+    7: 5,   # Left Elbow -> left_elbow
+    8: 9,   # Right Elbow -> right_elbow
+    9: 6,   # Left Wrist -> left_wrist
+    10: 10, # Right Wrist -> right_wrist
+    11: 12, # Left Hip -> left_hip
+    12: 16, # Right Hip -> right_hip
+    13: 13, # Left Knee -> left_knee
+    14: 17, # Right Knee -> right_knee
+    15: 14, # Left Ankle -> left_ankle
+    16: 18  # Right Ankle -> right_ankle
 }
 
 class YoloModel:
@@ -50,10 +50,9 @@ class YoloModel:
                 #     outkpts[joint_idx-1] = kpts_yolo[yolo_idx-1]  # -1 для перехода от 1-based к 0-based индексации
                 #     kpts_conf[joint_idx-1] = kpts_conf_yolo[yolo_idx-1]
                 for yolo_idx, joint_idx in YOLO_JOINTS_MAPPING.items():
-                    # joint_idx (1-based из JOINTS) -> joint_idx-1 в outkpts
-                    # yolo_idx уже 0-based, трогать не нужно
-                    outkpts[joint_idx - 1] = kpts_yolo[yolo_idx]
-                    kpts_conf[joint_idx - 1] = kpts_conf_yolo[yolo_idx]
+                    outkpts[joint_idx] = kpts_yolo[yolo_idx]  # теперь индексы уже 0-based
+                    kpts_conf[joint_idx] = kpts_conf_yolo[yolo_idx]
+                
                 pose.keypoints = outkpts
                 pose.keypoints_conf = kpts_conf
                 pose.box_conf = boxes[i].conf.cpu().numpy()

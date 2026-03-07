@@ -2,36 +2,36 @@ import numpy as np
 
 # Словарь суставов с их индексами и названиями
 JOINTS = {
-    1: "base_of_spine",  # основание позвоночника
-    2: "middle_of_spine",  # середина позвоночника
-    3: "neck",  # шея
-    4: "head",  # голова
-    5: "left_shoulder",  # левое плечо
-    6: "left_elbow",  # левый локоть
-    7: "left_wrist",  # левое запястье
-    8: "left_hand",  # левая рука
-    9: "right_shoulder",  # правое плечо
-    10: "right_elbow",  # правый локоть
-    11: "right_wrist",  # правое запястье
-    12: "right_hand",  # правая рука
-    13: "left_hip",  # левое бедро
-    14: "left_knee",  # левое колено
-    15: "left_ankle",  # левая лодыжка
-    16: "left_foot",  # левая ступня
-    17: "right_hip",  # правое бедро
-    18: "right_knee",  # правое колено
-    19: "right_ankle",  # правая лодыжка
-    20: "right_foot",  # правая ступня
-    21: "spine",  # позвоночник
-    22: "tip_of_left_hand",  # кончик левой руки
-    23: "left_thumb",  # левый большой палец
-    24: "tip_of_right_hand",  # кончик правой руки
-    25: "right_thumb",  # правый большой палец
-    26: "nose",  # нос
-    27: "left_eye",  # левый глаз
-    28: "right_eye",  # правый глаз
-    29: "left_ear",  # левое ухо
-    30: "right_ear",  # правое ухо
+    0: "base_of_spine",  # основание позвоночника
+    1: "middle_of_spine",  # середина позвоночника
+    2: "neck",  # шея
+    3: "head",  # голова
+    4: "left_shoulder",  # левое плечо
+    5: "left_elbow",  # левый локоть
+    6: "left_wrist",  # левое запястье
+    7: "left_hand",  # левая рука
+    8: "right_shoulder",  # правое плечо
+    9: "right_elbow",  # правый локоть
+    10: "right_wrist",  # правое запястье
+    11: "right_hand",  # правая рука
+    12: "left_hip",  # левое бедро
+    13: "left_knee",  # левое колено
+    14: "left_ankle",  # левая лодыжка
+    15: "left_foot",  # левая ступня
+    16: "right_hip",  # правое бедро
+    17: "right_knee",  # правое колено
+    18: "right_ankle",  # правая лодыжка
+    19: "right_foot",  # правая ступня
+    20: "spine",  # позвоночник
+    21: "tip_of_left_hand",  # кончик левой руки
+    22: "left_thumb",  # левый большой палец
+    23: "tip_of_right_hand",  # кончик правой руки
+    24: "right_thumb",  # правый большой палец
+    25: "nose",  # нос
+    26: "left_eye",  # левый глаз
+    27: "right_eye",  # правый глаз
+    28: "left_ear",  # левое ухо
+    29: "right_ear",  # правое ухо
 }
 
 

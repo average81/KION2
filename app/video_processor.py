@@ -7,7 +7,7 @@ from app.multimodal_action_classificator import MultimodalActionClassificator
 from pathlib import Path
 import json
 from copy import deepcopy
-import numpy as np
+
 
 default_config = {
     "pose_ext_model": "YOLOv8-Pose-N",  # было "OpenPose"
@@ -142,21 +142,5 @@ class VideoProcessor:
             results["multimodal_actions"] = multimodal_actions
         else:
             self.logger.info("MultimodalActionClassificator is None, skipping multimodal actions.")
-
-        # 4. Сохранение результатов в JSON        
-        Path(self.output_dir).mkdir(parents=True, exist_ok=True)
-        out_json_path = Path(self.output_dir) / "actions_results.json"
-
-        # делаем копию результата, чтобы не портить оригинальные numpy-массивы
-        safe_results = deepcopy(results)
-        safe_results = numpy_to_builtin(safe_results)
-
-        try:
-            with open(out_json_path, "w", encoding="utf-8") as f:
-                json.dump(safe_results, f, ensure_ascii=False, indent=2)
-            self.logger.info(f"Results saved to {out_json_path}")
-        except Exception as e:
-            self.logger.warning(f"Could not save results JSON: {e}")
-
         self.logger.info("Video processing finished.")
         return results
