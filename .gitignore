@@ -23,3 +23,6 @@ __pycache__/
 *.pyd
 *$py.class
 app/__pycache__/pose_estimator.cpython-311.pyc
+
+# Игнорировать веса моделей
+.pt

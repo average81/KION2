@@ -46,10 +46,14 @@ class YoloModel:
                 kpts_conf = np.zeros(len(JOINTS), dtype=np.float32)
                 
                 # Заполняем keypoints и confidence по маппингу
+                # for yolo_idx, joint_idx in YOLO_JOINTS_MAPPING.items():
+                #     outkpts[joint_idx-1] = kpts_yolo[yolo_idx-1]  # -1 для перехода от 1-based к 0-based индексации
+                #     kpts_conf[joint_idx-1] = kpts_conf_yolo[yolo_idx-1]
                 for yolo_idx, joint_idx in YOLO_JOINTS_MAPPING.items():
-                    outkpts[joint_idx-1] = kpts_yolo[yolo_idx-1]  # -1 для перехода от 1-based к 0-based индексации
-                    kpts_conf[joint_idx-1] = kpts_conf_yolo[yolo_idx-1]
-                
+                    # joint_idx (1-based из JOINTS) -> joint_idx-1 в outkpts
+                    # yolo_idx уже 0-based, трогать не нужно
+                    outkpts[joint_idx - 1] = kpts_yolo[yolo_idx]
+                    kpts_conf[joint_idx - 1] = kpts_conf_yolo[yolo_idx]
                 pose.keypoints = outkpts
                 pose.keypoints_conf = kpts_conf
                 pose.box_conf = boxes[i].conf.cpu().numpy()
