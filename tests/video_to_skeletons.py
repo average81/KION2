@@ -15,7 +15,7 @@ print("Using device:", DEVICE)
 VIDEO_PATH = "video_samples/potter1 01.mp4"         
 OUT_VIDEO_PATH = "outputs/output_skeletons.mp4"
 OUT_JSON_PATH = "outputs/skeletons.json"
-MODEL_PATH = "../models/yolov8n-pose.pt"    # ммодель yolov8s-pose.pt
+MODEL_PATH = "../models/yolo26s-pose"    # ммодель yolov8s-pose.pt
 
 CONF_THRES = 0.85                 # порог уверенности детекции
 # -------------------------------

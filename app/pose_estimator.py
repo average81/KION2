@@ -109,6 +109,7 @@ class PoseEstimator:
                 poses.append(
                     {
                         "box":result.box ,
+                        "box_conf": result.box_conf,
                         "frame_idx": frame_idx,
                         "person_id": result.id,
                         "keypoints": result.keypoints,  #  x, y

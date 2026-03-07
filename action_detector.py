@@ -20,7 +20,8 @@ if __name__ == "__main__":
         logging.basicConfig(level=logging.WARNING)
     logger.info("Starting video processing...")
     if not os.path.exists(args.input_file):
-        logger.error(f"Input file {args.input_dir} does not exist.")
+        logger.error(f"Input file {args.input_file} does not exist.")
         exit()
     processor=VideoProcessor(args.input_file,output_dir=args.output_dir,verbose = args.verbose,
                              config_path =args.config_path)
+    processor.process()
