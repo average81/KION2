@@ -3,13 +3,14 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-from ultralytics import YOLO  
+from models.yolo_models import YoloModel
 import torch
+import tqdm
 
 
 pose_models = {
-    "YOLOv8-Pose-N": "yolov8n-pose.pt",
-    "YOLOv8-Pose-S": "yolov8s-pose.pt",
+    "YOLOv8-Pose-N": {"model": YoloModel,"params":{"weights":"../models/yolov8n-pose.pt"}},
+    "YOLOv8-Pose-S": {"model": YoloModel,"params":{"weights":"../models/yolov8s-pose.pt"}},
 }
 
 
@@ -26,7 +27,7 @@ pose_models = {
 
 class PoseEstimator:
 
-    def __init__(self, model_name="YOLOv8-Pose-N", frame_sampling_rate=1, verbose=False):
+    def __init__(self, model_name="YOLOv8-Pose-N", frame_sampling_rate=1, verbose=False, threshold = 0.8):
         self.model_name = model_name
         self.frame_sampling_rate = frame_sampling_rate
 
@@ -45,21 +46,22 @@ class PoseEstimator:
         self.verbose = verbose
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO if self.verbose else logging.WARNING)
+        self.threshold =threshold
+        # Загрузка модель
 
-        # Загрузка YOLOv8-pose
-        weights = pose_models[self.model_name]
-        self.model = YOLO(weights)  # загружаем предобученную модель позы
+        self.model = pose_models[self.model_name]["model"](pose_models[self.model_name]["params"],
+                                                           threshold = self.threshold)  # загружаем предобученную модель позы
 
         self.logger.info(
             f"PoseEstimator initialized with model='{self.model_name}' "
-            f"({weights}) and frame_sampling_rate={self.frame_sampling_rate}, "
+            f"({pose_models[self.model_name]['params']}) and frame_sampling_rate={self.frame_sampling_rate}, "
             f"verbose={self.verbose}"
         )
         # выбор устройства
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.logger.info(f"Using device: {self.device}")
 
-    def estimate_video(self, video_path, conf=0.25):
+    def estimate_video(self, video_path):
         """
         Прогоняет видео и возвращает список поз по кадрам.
 
@@ -83,8 +85,8 @@ class PoseEstimator:
 
         frame_idx = 0
         poses = []
-
-        while True:
+        total_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        for i in tqdm.tqdm(range(int(total_frames)), desc=f"{Path(video_path).__repr__()}"):
             ret, frame = cap.read()
             if not ret:
                 break
@@ -94,24 +96,26 @@ class PoseEstimator:
                 frame_idx += 1
                 continue
 
-            # Запуск модели (YOLO сам вернёт объект Results с keypoints)
-            results = self.model(frame, conf=conf, verbose=False)
+            # Запуск модели
+            results = self.model.detect(frame)
 
-            for r in results:
-                if r.keypoints is None:
+            for result in results:
+                if result.keypoints is None:
                     continue
 
-                # r.keypoints.data: tensor (num_persons, K, 3) -> numpy
-                kps = r.keypoints.data.cpu().numpy()
+                # result.keypoints: numpy array (num_persons, K, 3) -> numpy
+                kps = result.keypoints
 
-                for person_idx, kp in enumerate(kps):
-                    poses.append(
-                        {
-                            "frame_idx": frame_idx,
-                            "person_id": person_idx,
-                            "keypoints": kp,  # (K, 3): x, y, conf
-                        }
-                    )
+                poses.append(
+                    {
+                        "box":result.box ,
+                        "box_conf": result.box_conf,
+                        "frame_idx": frame_idx,
+                        "person_id": result.id,
+                        "keypoints": result.keypoints,  #  x, y
+                        "keypoints_conf": result.keypoints_conf
+                    }
+                )
 
             frame_idx += 1
 

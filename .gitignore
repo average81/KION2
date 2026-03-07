@@ -3,7 +3,26 @@
 # Папки в репо есть, содержимое — нет
 video_samples/*
 !video_samples/.gitkeep
-models/*
-!models/.gitkeep
 outputs/*
 !outputs/.gitkeep
+/tests/video_samples
+/tests/outputs
+
+# Игнорировать все pyc-файлы
+*.pyc
+
+# Игнорировать директории __pycache__
+__pycache__/
+**/__pycache__/
+
+# Игнорировать прочие кэши Python
+*.py[co]
+*.pyc
+*.pyc
+*.pyo
+*.pyd
+*$py.class
+app/__pycache__/pose_estimator.cpython-311.pyc
+
+# Игнорировать веса моделей
+.pt
