@@ -11,6 +11,7 @@ import tqdm
 pose_models = {
     "YOLOv8-Pose-N": {"model": YoloModel,"params":{"weights":"../models/yolov8n-pose.pt"}},
     "YOLOv8-Pose-S": {"model": YoloModel,"params":{"weights":"../models/yolov8s-pose.pt"}},
+    "YOLOv26-Pose-N": {"model": YoloModel,"params":{"weights":"../models/yolo26n-pose.pt"}},
 }
 
 
