@@ -1,10 +1,11 @@
+# Файл в настоящий момент reference only
+# Для запуска в корне проекта выполните python -m tests.test_poses
+# В папке outputs появятся файл action_results
+
 import os
 import sys
 import logging
 
-# CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-# PARENT_DIR = os.path.dirname(CURRENT_DIR)
-# sys.path.append(PARENT_DIR)
 
 from app.video_processor import VideoProcessor
 

@@ -19,6 +19,19 @@ default_config = {
     "dynamic_act_frames": 60
 }
 
+# Конвертер объектов в списки
+def numpy_to_builtin(obj):
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, (np.integer, np.floating, np.bool_)):
+        return obj.item()
+    if isinstance(obj, dict):
+        return {k: numpy_to_builtin(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [numpy_to_builtin(v) for v in obj]
+    if isinstance(obj, tuple):
+        return tuple(numpy_to_builtin(v) for v in obj)
+    return obj
 
 class VideoProcessor:
     def __init__(self, input_file, output_dir="output", verbose=False, config_path="config.yml"):
@@ -130,19 +143,13 @@ class VideoProcessor:
         else:
             self.logger.info("MultimodalActionClassificator is None, skipping multimodal actions.")
 
-        # 4. Сохранение результатов в JSON
+        # 4. Сохранение результатов в JSON        
         Path(self.output_dir).mkdir(parents=True, exist_ok=True)
         out_json_path = Path(self.output_dir) / "actions_results.json"
 
         # делаем копию результата, чтобы не портить оригинальные numpy-массивы
         safe_results = deepcopy(results)
-
-        # конвертируем keypoints: np.ndarray -> list
-        if safe_results["raw_poses"] is not None:
-            for p in safe_results["raw_poses"]:
-                kpts = p.get("keypoints")
-                if isinstance(kpts, np.ndarray):
-                    p["keypoints"] = kpts.tolist()
+        safe_results = numpy_to_builtin(safe_results)
 
         try:
             with open(out_json_path, "w", encoding="utf-8") as f:
@@ -150,6 +157,6 @@ class VideoProcessor:
             self.logger.info(f"Results saved to {out_json_path}")
         except Exception as e:
             self.logger.warning(f"Could not save results JSON: {e}")
+
         self.logger.info("Video processing finished.")
-        
         return results

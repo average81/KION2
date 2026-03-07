@@ -22,5 +22,11 @@ if __name__ == "__main__":
     if not os.path.exists(args.input_file):
         logger.error(f"Input file {args.input_file} does not exist.")
         exit()
-    processor=VideoProcessor(args.input_file,output_dir=args.output_dir,verbose = args.verbose,
-                             config_path =args.config_path)
+    processor = VideoProcessor(
+        args.input_file,
+        output_dir=args.output_dir,
+        verbose=args.verbose,
+        config_path=args.config_path,
+    )
+
+    processor.process()
