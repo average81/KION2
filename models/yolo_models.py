@@ -29,33 +29,31 @@ class YoloModel:
         self.weights = params["weights"]
         self.threshold = threshold
         self.model=YOLO(self.weights).to(DEVICE)
-    def detect(self,image):
-        result = self.model(image, conf=self.threshold, verbose=False)[0]
+    def detect(self,images):
+        results = self.model.predict(source=images, conf=self.threshold, verbose=False)
         poses=[]
-        if result.keypoints is not None:
-            kpts = result.keypoints
-            boxes = result.boxes
-            pose =Pose()
-            for i in range(len(boxes)):
-                pose.box = boxes[i].xyxy[0].cpu().numpy()  # [x1,y1,x2,y2]
-                kpts_yolo = kpts.xy[i].cpu().numpy()
-                kpts_conf_yolo = kpts.conf[i].cpu().numpy()
-                
-                # Создаем пустые массивы для keypoints и confidence с учетом размерности JOINTS
-                outkpts = np.zeros((len(JOINTS), 2), dtype=np.float32)
-                kpts_conf = np.zeros(len(JOINTS), dtype=np.float32)
-                
-                # Заполняем keypoints и confidence по маппингу
-                # for yolo_idx, joint_idx in YOLO_JOINTS_MAPPING.items():
-                #     outkpts[joint_idx-1] = kpts_yolo[yolo_idx-1]  # -1 для перехода от 1-based к 0-based индексации
-                #     kpts_conf[joint_idx-1] = kpts_conf_yolo[yolo_idx-1]
-                for yolo_idx, joint_idx in YOLO_JOINTS_MAPPING.items():
-                    outkpts[joint_idx] = kpts_yolo[yolo_idx]  # теперь индексы уже 0-based
-                    kpts_conf[joint_idx] = kpts_conf_yolo[yolo_idx]
-                
-                pose.keypoints = outkpts
-                pose.keypoints_conf = kpts_conf
-                pose.box_conf = boxes[i].conf.cpu().numpy()
-                pose.id = 0
-                poses.append(pose)
+        for result in results:
+            if len(result) >0:
+                kpts = result.keypoints
+                boxes = result.boxes
+                pose =Pose()
+                for i in range(len(boxes)):
+                    pose.box = boxes[i].xyxy[0].cpu().numpy()  # [x1,y1,x2,y2]
+                    kpts_yolo = kpts.xy[i].cpu().numpy()
+                    kpts_conf_yolo = kpts.conf[i].cpu().numpy()
+
+                    # Создаем пустые массивы для keypoints и confidence с учетом размерности JOINTS
+                    outkpts = np.zeros((len(JOINTS), 2), dtype=np.float32)
+                    kpts_conf = np.zeros(len(JOINTS), dtype=np.float32)
+
+                    # Заполняем keypoints и confidence по маппингу
+                    for yolo_idx, joint_idx in YOLO_JOINTS_MAPPING.items():
+                        outkpts[joint_idx] = kpts_yolo[yolo_idx]  # теперь индексы уже 0-based
+                        kpts_conf[joint_idx] = kpts_conf_yolo[yolo_idx]
+
+                    pose.keypoints = outkpts
+                    pose.keypoints_conf = kpts_conf
+                    pose.box_conf = boxes[i].conf.cpu().numpy()
+                    pose.id = 0
+                    poses.append(pose)
         return poses

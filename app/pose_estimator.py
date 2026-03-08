@@ -11,6 +11,7 @@ import tqdm
 pose_models = {
     "YOLOv8-Pose-N": {"model": YoloModel,"params":{"weights":"../models/yolov8n-pose.pt"}},
     "YOLOv8-Pose-S": {"model": YoloModel,"params":{"weights":"../models/yolov8s-pose.pt"}},
+    "YOLOv26-Pose-N": {"model": YoloModel,"params":{"weights":"../models/yolo26n-pose.pt"}},
 }
 
 
@@ -27,10 +28,10 @@ pose_models = {
 
 class PoseEstimator:
 
-    def __init__(self, model_name="YOLOv8-Pose-N", frame_sampling_rate=1, verbose=False, threshold = 0.8):
+    def __init__(self, model_name="YOLOv8-Pose-N", frame_sampling_rate=1, verbose=False, threshold = 0.8, batch_size = 1):
         self.model_name = model_name
         self.frame_sampling_rate = frame_sampling_rate
-
+        self.batch_size = batch_size
         # Проверка имени модели
         if self.model_name not in pose_models:
             raise ValueError(
@@ -85,6 +86,8 @@ class PoseEstimator:
 
         frame_idx = 0
         poses = []
+        batch_cnt = 0
+        batch = []
         total_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
         for i in tqdm.tqdm(range(int(total_frames)), desc=f"{Path(video_path).__repr__()}"):
             ret, frame = cap.read()
@@ -95,29 +98,42 @@ class PoseEstimator:
             if frame_idx % self.frame_sampling_rate != 0:
                 frame_idx += 1
                 continue
+            # Добавляем кадр в батч
+            #frame_tensor = torch.from_numpy(frame).permute(2, 0, 1).unsqueeze(0).float() / 255.0
+            #if batch.numel() == 0:
+            #    batch = frame_tensor
+            #else:
+            #    batch = torch.cat([batch, frame_tensor], dim=0)
+            batch.append(frame)
+            batch_cnt += 1
+            
+            # Обработка батча при достижении нужного размера или в конце видео
+            if batch_cnt == self.batch_size or i == total_frames - 1:
+                # Запуск модели
+                results = self.model.detect(batch)
+                
+                # Обработка результатов
+                for result in results:
+                    if result.keypoints is None:
+                        continue
 
-            # Запуск модели
-            results = self.model.detect(frame)
+                    poses.append(
+                        {
+                            "box": result.box,
+                            "box_conf": result.box_conf,
+                            "frame_idx": frame_idx,
+                            "person_id": result.id,
+                            "keypoints": result.keypoints,
+                            "keypoints_conf": result.keypoints_conf
+                        }
+                    )
+                    frame_idx += 1
+                
+                # Сброс батча
+                batch_cnt = 0
+                batch = []
+                
 
-            for result in results:
-                if result.keypoints is None:
-                    continue
-
-                # result.keypoints: numpy array (num_persons, K, 3) -> numpy
-                kps = result.keypoints
-
-                poses.append(
-                    {
-                        "box":result.box ,
-                        "box_conf": result.box_conf,
-                        "frame_idx": frame_idx,
-                        "person_id": result.id,
-                        "keypoints": result.keypoints,  #  x, y
-                        "keypoints_conf": result.keypoints_conf
-                    }
-                )
-
-            frame_idx += 1
 
         cap.release()
         self.logger.info(

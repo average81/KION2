@@ -16,7 +16,8 @@ default_config = {
     "multimodal_model": "TST",
     "video_decimation": 1,
     "static_act_frames": 60,
-    "dynamic_act_frames": 60
+    "dynamic_act_frames": 60,
+    "batch_size": 4
 }
 
 # Конвертер объектов в списки
@@ -71,12 +72,13 @@ class VideoProcessor:
         else:
             action_config['pose_ext_th'] = default_config['pose_ext_th']
 
-        if self.config["pose_ext_model"] != 'None' and self.config['pose_action_model'] is not None:
+        if self.config["pose_ext_model"] is not None and self.config['pose_action_model'] is not None:
             self.pose_extractor = PoseEstimator(
                 model_name=self.config["pose_ext_model"],
                 frame_sampling_rate=self.config["video_decimation"],
                 verbose=self.verbose,
-                threshold = self.config.get("pose_ext_th",0.8)
+                threshold = self.config.get("pose_ext_th",0.8),
+                batch_size = self.config.get('batch_size',1),
             )
 
             self.pose_action_classifier = PoseActionClassificator(
