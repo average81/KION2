@@ -28,7 +28,7 @@ pose_models = {
 
 class PoseEstimator:
 
-    def __init__(self, model_name="YOLOv8-Pose-N", frame_sampling_rate=1, verbose=False, threshold = 0.8, batch_size = 1):
+    def __init__(self, model_name="YOLOv8-Pose-N", frame_sampling_rate=1, verbose=False, threshold = 0.8, batch_size = 128):
         self.model_name = model_name
         self.frame_sampling_rate = frame_sampling_rate
         self.batch_size = batch_size
