@@ -51,7 +51,7 @@ def _load_pose_json(file_path: str) -> List[Pose]:
     
     poses = []
     raw_poses = data.get('raw_poses', [])
-    
+
     for pose_data in raw_poses:
         pose = Pose()
         pose.frame_idx = pose_data['frame_idx']
@@ -60,19 +60,11 @@ def _load_pose_json(file_path: str) -> List[Pose]:
         # Конвертируем keypoints в numpy массив
         keypoints = np.array(pose_data['keypoints'])
         
-        # Если keypoints в формате (K, 3) - берем только x,y
-        if keypoints.shape[1] == 3:
-            pose.keypoints = keypoints[:, :2]
-        else:
-            pose.keypoints = keypoints
+        pose.keypoints = keypoints
         
         # Создаем массив confidence
-        if keypoints.shape[1] == 3:
-            pose.keypoints_conf = keypoints[:, 2]
-        else:
-            # Если confidence нет, устанавливаем 1.0 для всех суставов
-            pose.keypoints_conf = np.ones(len(pose.keypoints))
-        
+        pose.keypoints_conf = pose_data['keypoints_conf']
+
         poses.append(pose)
     
     return poses
@@ -101,7 +93,7 @@ def _load_pose_npz(file_path: str) -> List[Pose]:
     else:
         keypoints = keypoints_array
         keypoints_conf = np.ones((n_frames, n_joints))
-    
+
     for i in range(n_frames):
         pose = Pose()
         pose.frame_idx = i
@@ -135,15 +127,24 @@ def calculate_mpjpe(predicted_poses: List[Pose], ground_truth_poses: List[Pose])
     if len(predicted_poses) != len(ground_truth_poses):
         print(f"Предупреждение: разное количество поз в наборах: {len(predicted_poses)} vs {len(ground_truth_poses)}")
         # Обрезаем до минимального размера
-        min_len = min(len(predicted_poses), len(ground_truth_poses))
-        predicted_poses = predicted_poses[:min_len]
-        ground_truth_poses = ground_truth_poses[:min_len]
+        #min_len = min(len(predicted_poses), len(ground_truth_poses))
+        #predicted_poses = predicted_poses[:min_len]
+        #ground_truth_poses = ground_truth_poses[:min_len]
     
     # Словарь для хранения ошибок по каждому суставу
     joint_errors = {joint_idx: [] for joint_idx in JOINTS.keys()}
     
     # Сравниваем соответствующие позы
-    for pred_pose, gt_pose in zip(predicted_poses, ground_truth_poses):
+
+    for pred_pose in predicted_poses:
+        gt_pose = None
+        for gt_pose in ground_truth_poses:
+            if pred_pose.frame_idx == gt_pose.frame_idx and pred_pose.id==gt_pose.id:
+                break
+
+        if gt_pose == None:
+            break
+
         # Проверяем, что оба объекта имеют необходимые атрибуты
         if not hasattr(pred_pose, 'keypoints') or not hasattr(gt_pose, 'keypoints'):
             continue

@@ -54,6 +54,6 @@ class YoloModel:
                     pose.keypoints = outkpts
                     pose.keypoints_conf = kpts_conf
                     pose.box_conf = boxes[i].conf.cpu().numpy()
-                    pose.id = 0
+                    pose.id = i
                     poses.append(pose)
         return poses
