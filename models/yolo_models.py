@@ -33,11 +33,13 @@ class YoloModel:
         results = self.model.predict(source=images, conf=self.threshold, verbose=False)
         poses=[]
         for result in results:
+            frame_poses = []
             if len(result) >0:
                 kpts = result.keypoints
                 boxes = result.boxes
-                pose =Pose()
+
                 for i in range(len(boxes)):
+                    pose =Pose()
                     pose.box = boxes[i].xyxy[0].cpu().numpy()  # [x1,y1,x2,y2]
                     kpts_yolo = kpts.xy[i].cpu().numpy()
                     kpts_conf_yolo = kpts.conf[i].cpu().numpy()
@@ -55,5 +57,6 @@ class YoloModel:
                     pose.keypoints_conf = kpts_conf
                     pose.box_conf = boxes[i].conf.cpu().numpy()
                     pose.id = i
-                    poses.append(pose)
+                    frame_poses.append(pose)
+            poses.append(frame_poses)
         return poses
