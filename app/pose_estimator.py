@@ -6,6 +6,7 @@ import numpy as np
 from models.yolo_models import YoloModel
 import torch
 import tqdm
+from utils.utils import calculate_iou
 
 
 pose_models = {
@@ -84,10 +85,12 @@ class PoseEstimator:
         if not cap.isOpened():
             raise FileNotFoundError(f"Cannot open video: {video_path}")
 
-        frame_idx = 0
         poses = []
         batch_cnt = 0
         batch = []
+        last_boxes = []
+        last_ids = []
+        cur_id = 0 # ID текущего объекта
         total_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
         for i in tqdm.tqdm(range(int(total_frames)), desc=f"{Path(video_path).__repr__()}"):
             ret, frame = cap.read()
@@ -95,8 +98,7 @@ class PoseEstimator:
                 break
 
             # прореживание по кадрам
-            if frame_idx % self.frame_sampling_rate != 0:
-                frame_idx += 1
+            if i % self.frame_sampling_rate != 0:
                 continue
             # Добавляем кадр в батч
             #frame_tensor = torch.from_numpy(frame).permute(2, 0, 1).unsqueeze(0).float() / 255.0
@@ -113,21 +115,35 @@ class PoseEstimator:
                 results = self.model.detect(batch)
                 
                 # Обработка результатов
-                for result in results:
-                    if result.keypoints is None:
-                        continue
 
-                    poses.append(
-                        {
-                            "box": result.box,
-                            "box_conf": result.box_conf,
-                            "frame_idx": frame_idx,
-                            "person_id": result.id,
-                            "keypoints": result.keypoints,
-                            "keypoints_conf": result.keypoints_conf
-                        }
-                    )
-                    frame_idx += 1
+                for frame_id,result in enumerate(results):
+                    new_boxes = []
+                    new_ids = []
+                    for frame_result in result:
+                        if frame_result.keypoints is None:
+                            continue
+                        new_boxes.append(frame_result.box)
+                        id = -1
+                        for j in range(len(last_boxes)):
+                            if calculate_iou(frame_result.box,last_boxes[j]) > 0.7 :
+                                id = last_ids[j]
+                        if id == -1:
+                            #Не отслеживается трек, заводим новый id
+                            cur_id += 1
+                            id =cur_id
+                        new_ids.append(id)
+                        poses.append(
+                            {
+                                "box": frame_result.box,
+                                "box_conf": frame_result.box_conf,
+                                "frame_idx": i - batch_cnt + frame_id,
+                                "person_id": id,
+                                "keypoints": frame_result.keypoints,
+                                "keypoints_conf": frame_result.keypoints_conf
+                            }
+                        )
+                    last_ids =new_ids
+                    last_boxes=new_boxes
                 
                 # Сброс батча
                 batch_cnt = 0
@@ -137,7 +153,7 @@ class PoseEstimator:
 
         cap.release()
         self.logger.info(
-            f"Pose estimation finished. Frames processed: {frame_idx}, "
+            f"Pose estimation finished. Frames processed: {i}, "
             f"poses collected: {len(poses)}"
         )
         return poses

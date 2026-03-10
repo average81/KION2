@@ -25,7 +25,7 @@ if __name__ == "__main__":
         input_file="tests/video_samples/potter1 01.mp4"
     vp = VideoProcessor(
         input_file=input_file,      # путь к короткому видео
-        output_dir="outputs",
+        output_dir="tests/outputs",
         verbose=True,
         config_path="config.yml",   # можно не создавать заранее, он сам сохранится
     )

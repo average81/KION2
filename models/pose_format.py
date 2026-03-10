@@ -43,3 +43,4 @@ class Pose:
         self.box_conf = 0
         self.id=-1
         self.keypoints_conf= np.zeros((len(self.keypoints)),dtype=np.float32)
+        self.frame_idx = 0
