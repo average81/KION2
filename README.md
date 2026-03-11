@@ -88,3 +88,18 @@ YOLO‑pose (YOLOv7‑pose, YOLOv8‑pose)
 Что это: модели, совмещающие детекцию человека и суставов.
 Плюсы: быстро, удобно, если нужно сразу и человек, и ключевые точки.
 Минусы: экосистема не такая устоявшаяся, как у OpenPose/MediaPipe.
+
+## Документация
+
+- [Формат поз и нормализация](docs/pose_and_normalization.md) — нумерация 18 суставов (OpenPose), схема нормализации координат, размер кадра, формат .npy/.pkl для ST-GCN/Kinetics.
+
+## Запуск пайплайна «видео → действие»
+
+- `tests/action_detection_video-yolo-stgcn.py` — полный прогон: видео → позы (YOLO/VideoProcessor) → ST-GCN → Top‑5 действий. Запуск из корня: `python tests/action_detection_video-yolo-stgcn.py path/to/video.mp4`.
+
+## Вспомогательные скрипты (анализ и отладка)
+
+- `tests/tools/inspect_labels.py` — быстрый осмотр датасета Kinetics-skeleton или совместимого `.npy + .pkl`: баланс классов, форма `(N, 3, T, 18, M)`, статистика по каналам, визуализация нескольких кадров первого клипа.
+- `tests/tools/show_inference_input.py` — показывает тот же numpy, который подаётся в ST-GCN при инференсе (через OpenPose JSON или наш JSON от `VideoProcessor`), печатает статистику по каналам и рисует скелеты.
+- `tests/tools/test_stgcn_on_openpose_data.py` — прогоняет предобученную ST-GCN по папке с OpenPose `*_keypoints.json` для одного ролика, выводит Top‑5 предсказаний.
+- `tests/tools/validate_stgcn_npy_pkl.py` — оффлайновая валидация ST-GCN на готовом `.npy` (+ `.pkl` с метками): считает Top‑1/Top‑5 accuracy или выводит предсказания для ручной проверки.

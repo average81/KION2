@@ -26,3 +26,5 @@ app/__pycache__/pose_estimator.cpython-311.pyc
 
 # Игнорировать веса моделей
 .pt
+
+Open_pose_samples

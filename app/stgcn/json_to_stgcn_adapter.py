@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from typing import List, Dict, Any
 
+import cv2
 import numpy as np
 
 from models.pose_format import JOINTS
@@ -70,10 +71,14 @@ def _synthesize_neck_if_missing(
 def load_sequence_from_our_json(
     json_path: str | Path,
     min_frame_conf: float = 0.1,
+    width: int = 340,
+    height: int = 256,
 ) -> np.ndarray:
     """
     Читает JSON, сохранённый PosePipeline / VideoProcessor,
     и преобразует в тензор для ST‑GCN: (1, 3, T, 18, 1).
+    Координаты в keypoints считаются в пикселях; нормализация как при обучении Kinetics:
+    [0,1] по размеру кадра (width, height), затем центрация -0.5.
     """
     json_path = Path(json_path)
     with json_path.open("r", encoding="utf-8") as f:
@@ -121,26 +126,14 @@ def load_sequence_from_our_json(
             continue
 
         # Берём только те 18 суставов, которые нужны ST‑GCN (openpose‑layout)
-        kps_18_xy = keypoints[OUR30_TO_OPENPOSE18]   # (18,2)
+        kps_18_xy = keypoints[OUR30_TO_OPENPOSE18]   # (18,2) пиксели
         conf_18 = conf[OUR30_TO_OPENPOSE18]          # (18,)
 
-        # Нормализация как в demo_myjson:
-        # центр — mid_hip, масштаб — расстояние между шеей и mid_hip
-        # (работаем уже в 18‑суставном пространстве)
+        # Нормализация как при обучении Kinetics: [0,1] по размеру кадра, затем -0.5
+        wh = np.array([width, height], dtype=np.float32)
+        coords_norm = (kps_18_xy / wh) - 0.5
+        coords_norm[conf_18 < 1e-6] = 0  # обнуляем точки с нулевым score
 
-        coords = kps_18_xy.copy()               # (18,2)
-        neck = coords[1]                        # index 1 = neck
-        right_hip = coords[8]                   # index 8 = right_hip
-        left_hip = coords[11]                   # index 11 = left_hip
-        mid_hip = (right_hip + left_hip) / 2.0  # (2,)
-
-        center = mid_hip
-        coords_centered = coords - center
-
-        torso_size = np.linalg.norm(neck - mid_hip) + 1e-6
-        coords_norm = coords_centered / torso_size
-
-        # собираем (18,3) = (x,y,score)
         kps_norm = np.zeros((18, 3), dtype=np.float32)
         kps_norm[:, :2] = coords_norm
         kps_norm[:, 2] = conf_18
@@ -190,10 +183,18 @@ def recognize_action_from_video(
     )
     poses_json_path = res["json_path"]
 
-    # 2. JSON → (1,3,T,18,1)
-    data_numpy = load_sequence_from_our_json(poses_json_path)
+    # 2. Размер кадра из видео — нормализация как при обучении ([0,1] по width×height, затем -0.5)
+    cap = cv2.VideoCapture(str(video_path))
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) or 340
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) or 256
+    cap.release()
 
-    # 3. ST‑GCN предобученный
+    # 3. JSON → (1,3,T,18,1)
+    data_numpy = load_sequence_from_our_json(
+        poses_json_path, width=width, height=height
+    )
+
+    # 4. ST‑GCN предобученный
     model = STGCNWrapper(
         weights_path="models/st_gcn.kinetics.pt",
         label_map_path="app/stgcn/kinetics400-id2label.txt",
