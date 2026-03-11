@@ -10,6 +10,24 @@ from scipy.interpolate import interp1d
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 import yaml
+import random
+
+CLASSES = [
+    'drink water', 'eat meal', 'brushing teeth', 'brushing hair', 'drop',
+    'pickup', 'throw', 'sitting down', 'standing up', 'clapping', 'reading',
+    'writing', 'tear up paper', 'wear jacket', 'taking off jacket',
+    'wear a shoe', 'taking off a shoe', 'wear socks', 'taking off socks',
+    'stretching arm', 'kicking', 'punching', 'kicking 2', 'punching 2',
+    'falling', 'hammering', 'kicking something', 'punching 3', 'dancing',
+    'kicking 3', 'writing 2', 'taking a selfie', 'checking time',
+    'rub two hands together', 'walking zigzag', 'walking with irregular speed',
+    'walking with heavy steps', 'arm circles', 'arm swings', 'lunge',
+    'squats', 'banded squats', 'arm curls', 'prior box squats', 'pushups',
+    'bench press', 'deadlift', 'jump jacks', 'rowing', 'running on treadmill',
+    'situps', 'lunges', 'jump rope', 'pushup jacks', 'high knees',
+    'heels down', 'side kick', 'round house kick', 'fore kick', 'side kick 2',
+    'side lunge'
+]
 # %%
 # ==============================================================================
 # 2. ФУНКЦИИ ОБРАБОТКИ ДАННЫХ (без изменений)
@@ -86,6 +104,10 @@ class SkeletonDataset(Dataset):
         data = parse_skeleton(filepath)
         if data is None: return self[0]
         data = normalize_skeleton(data)
+        #если кадров в файле больше 30, то берем случайно 30 последовательных
+        if len(data)>30:
+            start = random.randint(0,len(data)-29)
+            data = data[start:start + 30]
         data = interpolate_frames(data, target=30)
         # Усредняем по телам → (30, 25, 3), есть над чем поработать, добавит ошибок, если несколько тел
         data = data.mean(axis=1)  # или data[:, 0, ...] для первого тела
@@ -318,7 +340,7 @@ class LSTMSkeletonNet(nn.Module):
             sequence = []
             for pose in sorted_poses:
                 keypoints_3d = []
-                for joint_idx in sorted(JOINTS.keys()):
+                for joint_idx in range(25): #25 первых записей
                     kpt = pose.keypoints[joint_idx]
                     # Предполагаем Z=0 для 2D поз
                     keypoints_3d.append([kpt[0], kpt[1], 0.0])

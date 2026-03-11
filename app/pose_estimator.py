@@ -132,16 +132,9 @@ class PoseEstimator:
                             cur_id += 1
                             id =cur_id
                         new_ids.append(id)
-                        poses.append(
-                            {
-                                "box": frame_result.box,
-                                "box_conf": frame_result.box_conf,
-                                "frame_idx": i - batch_cnt + frame_id,
-                                "person_id": id,
-                                "keypoints": frame_result.keypoints,
-                                "keypoints_conf": frame_result.keypoints_conf
-                            }
-                        )
+                        frame_result.id=id
+                        frame_result.frame_idx = i - batch_cnt + frame_id
+                        poses.append(frame_result)
                     last_ids =new_ids
                     last_boxes=new_boxes
                 

@@ -12,11 +12,10 @@ from copy import deepcopy
 default_config = {
     "pose_ext_model": "YOLOv8-Pose-N",  # было "OpenPose"
     "pose_ext_th": 0.8,
-    "pose_action_model": "LSTM_ActionNet",
+    "pose_action_model": "LSTMSkeletonNet",
     "multimodal_model": "TST",
     "video_decimation": 1,
-    "static_act_frames": 60,
-    "dynamic_act_frames": 60,
+    "act_frames": 30,
     "batch_size": 4
 }
 
@@ -46,14 +45,10 @@ class VideoProcessor:
                 self.logger.warning(f"Could not save default config: {e}")
 
         action_config = {'pose_action_model': self.config['pose_action_model']}
-        if "static_act_frames" in self.config:
-            action_config['static_act_frames'] = self.config['static_act_frames']
+        if "act_frames" in self.config:
+            action_config['act_frames'] = self.config['act_frames']
         else:
-            action_config['static_act_frames'] = default_config['static_act_frames']
-        if "dynamic_act_frames" in self.config:
-            action_config['dynamic_act_frames'] = self.config['dynamic_act_frames']
-        else:
-            action_config['dynamic_act_frames'] = default_config['dynamic_act_frames']
+            action_config['act_frames'] = default_config['act_frames']
         if "pose_ext_th" in self.config:
             action_config['pose_ext_th'] = self.config['pose_ext_th']
         else:
@@ -70,8 +65,7 @@ class VideoProcessor:
 
             self.pose_action_classifier = PoseActionClassificator(
                 action_config['pose_action_model'],
-                action_config['static_act_frames'],
-                action_config['dynamic_act_frames'],
+                action_config['act_frames'],
                 verbose=self.verbose,
             )
         else:
@@ -82,8 +76,7 @@ class VideoProcessor:
             self.mult_modl_clssfr = MultimodalActionClassificator(
                 self.config["multimodal_model"],
                 self.config["video_decimation"],
-                action_config['static_act_frames'],
-                action_config['dynamic_act_frames'],
+                action_config['act_frames'],
                 verbose=self.verbose,
             )
         else:
@@ -114,7 +107,7 @@ class VideoProcessor:
             poses = self.pose_extractor.estimate_video(
                 self.input_file
             )
-            results["raw_poses"] = poses
+            results["raw_poses"] = [pose.to_dict() for pose in poses]
 
             # 2. Классификация действий по позам (если есть классификатор)
             if hasattr(self, "pose_action_classifier") and self.pose_action_classifier is not None:

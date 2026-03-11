@@ -44,3 +44,39 @@ class Pose:
         self.id=-1
         self.keypoints_conf= np.zeros((len(self.keypoints)),dtype=np.float32)
         self.frame_idx = 0
+    def to_dict(self):
+        """
+        Преобразует объект Pose в словарь для последующей сериализации в JSON.
+
+        Returns:
+            dict: Сериализованное представление объекта Pose.
+        """
+        return {
+            "frame_idx": int(self.frame_idx),
+            "person_id": int(self.id),
+            "box": self.box.tolist() if self.box.size > 0 else [],
+            "box_conf": float(self.box_conf),
+            "keypoints": self.keypoints.tolist(),
+            "keypoints_conf": self.keypoints_conf.tolist()
+        }
+
+    @classmethod
+    def from_dict(cls, data):
+        """
+        Восстанавливает объект Pose из словаря (например, загруженного из JSON).
+
+        Args:
+            data (dict): Данные для восстановления объекта Pose.
+
+        Returns:
+            Pose: Восстановленный объект Pose.
+        """
+        pose = cls()
+        pose.frame_idx = int(data.get("frame_idx", 0))
+        pose.id = int(data.get("person_id", -1))
+        box_data = data.get("box", [])
+        pose.box = np.array(box_data, dtype=np.uint8) if box_data else np.array([[]], dtype=np.uint8)
+        pose.box_conf = float(data.get("box_conf", 0.0))
+        pose.keypoints = np.array(data["keypoints"], dtype=np.float32)
+        pose.keypoints_conf = np.array(data["keypoints_conf"], dtype=np.float32)
+        return pose

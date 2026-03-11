@@ -1,6 +1,5 @@
-dynamic_act_frames: 60
+act_frames: 30
 multimodal_model: TST
-pose_action_model: LSTM_ActionNet
-pose_ext_model: YOLOv8-Pose-N
-static_act_frames: 60
+pose_action_model: LSTMSkeletonNet
+pose_ext_model: YOLOv26-Pose-N
 video_decimation: 1

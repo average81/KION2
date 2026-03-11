@@ -3,6 +3,8 @@ import logging
 import os
 import utils.utils as utils
 from app.video_processor import VideoProcessor
+import json
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -24,4 +26,14 @@ if __name__ == "__main__":
         exit()
     processor=VideoProcessor(args.input_file,output_dir=args.output_dir,verbose = args.verbose,
                              config_path =args.config_path)
-    processor.process()
+    result = processor.process()
+    serializable_result = utils.numpy_to_builtin(result)
+    # Сохранение результатов в JSON (аналогично test_poses.py)
+    output_json = os.path.join(args.output_dir, "results.json")
+    # Создаем директорию для сохранения
+    output_path = Path(args.output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    with open(output_json, 'w', encoding='utf-8') as f:
+        json.dump(serializable_result, f, ensure_ascii=False, indent=2)
+
+    logger.info(f"Results saved to {output_json}")

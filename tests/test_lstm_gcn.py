@@ -1,6 +1,6 @@
 import sys
 import argparse
-from models.lstm_gcn_net import LSTMSkeletonNet
+from models.lstm_gcn_net import LSTMSkeletonNet, CLASSES
 
 def main():
     parser = argparse.ArgumentParser(description='Предсказание действия с помощью LSTM-GCN модели')
@@ -27,7 +27,7 @@ def main():
         result = model.predict(args.input_path)
 
         print(f"✅ Предсказание выполнено успешно!")
-        print(f"🔹 Предсказанный класс: {result['predicted_class']}")
+        print(f"🔹 Предсказанный класс: {result['predicted_class']}, {CLASSES[result['predicted_class']]}")
         print(f"🔹 Уверенность: {result['confidence']:.3f}")
         print(f"🔹 Логиты: [{', '.join(f'{v:.3f}' for v in result['logits'][:5])}, ...]")
 
