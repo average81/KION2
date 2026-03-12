@@ -1,11 +1,14 @@
 import logging
 from models.LSTM_models import LSTM_model
+from models.stgcn_models import STGCN_model
 from models.action_format import *
 # Словарь поддерживаемых моделей (можно расширять)
 action_models = {
     "LSTMSkeletonNet": {"model":LSTM_model,"params":{"weights":"models/lstm_gcn.pth",
                                                      "num_classes": 60, "input_size": 75,
-                                                     "hidden_size": 256, "num_layers": 2, "dropout": 0.3}}
+                                                     "hidden_size": 256, "num_layers": 2, "dropout": 0.3}},
+    "STGCN_model": {"model":STGCN_model , "params": {"weights": "models/st_gcn.kinetics.pt",
+                                                     "label_map_path": "models/stgcn/kinetics400-id2label.txt"} }
 }
 
 """

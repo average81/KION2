@@ -2,8 +2,8 @@ data:
   skeleton_dir: "C:/Users/above/IdeaProjects/NTU-RGB+D 120/nturgb+d_skeletons"
 
 training:
-  batch_size: 32
+  batch_size: 128
   epochs: 50
   learning_rate: 0.001
   weight_decay: 0.01
-  num_workers: 8
+  num_workers: 10

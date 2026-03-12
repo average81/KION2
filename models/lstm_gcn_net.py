@@ -28,6 +28,7 @@ CLASSES = [
     'heels down', 'side kick', 'round house kick', 'fore kick', 'side kick 2',
     'side lunge'
 ]
+DECIMATION = 3
 # %%
 # ==============================================================================
 # 2. ФУНКЦИИ ОБРАБОТКИ ДАННЫХ (без изменений)
@@ -104,11 +105,13 @@ class SkeletonDataset(Dataset):
         data = parse_skeleton(filepath)
         if data is None: return self[0]
         data = normalize_skeleton(data)
-        #если кадров в файле больше 30, то берем случайно 30 последовательных
-        if len(data)>30:
-            start = random.randint(0,len(data)-29)
-            data = data[start:start + 30]
-        data = interpolate_frames(data, target=30)
+        #если кадров в файле больше 30 * DECIMATION, то берем случайно 60 последовательных
+        if len(data)>30 * DECIMATION:
+            start = random.randint(0,len(data)-30 * DECIMATION + 1)
+            data = data[start:start + 30 * DECIMATION]
+        data = interpolate_frames(data, target=30 * DECIMATION)
+        # Прореживаем кадры до 30
+        data = data[::DECIMATION]
         # Усредняем по телам → (30, 25, 3), есть над чем поработать, добавит ошибок, если несколько тел
         data = data.mean(axis=1)  # или data[:, 0, ...] для первого тела
         tensor = torch.FloatTensor(data).permute(0, 1, 2)  # (T, C, V)
@@ -352,8 +355,14 @@ class LSTMSkeletonNet(nn.Module):
             raise TypeError(f"Неподдерживаемый тип данных: {type(data)}")
 
         # Обработка данных
+        #если кадров в файле больше 60, то берем случайно 60 последовательных
+        if len(data)>30 * DECIMATION:
+            start = random.randint(0,len(data)-30 * DECIMATION + 1)
+            data = data[start:start + 30 * DECIMATION]
         data = normalize_skeleton(data)
-        data = interpolate_frames(data, target=30)
+        data = interpolate_frames(data, target=30 * DECIMATION)
+        # Прореживаем данные
+        data = data[::DECIMATION]
         data = data.mean(axis=1)  # Усредняем по телам
         tensor = torch.FloatTensor(data).unsqueeze(0)  # Добавляем batch dimension
         tensor = tensor.permute(0, 1, 2, 3)  # (1, T, C, V)
