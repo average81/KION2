@@ -1,6 +1,7 @@
 import sys
 import argparse
 from models.lstm_gcn_net import LSTMSkeletonNet, CLASSES
+from app.pose_action_classificator import action_models
 
 def main():
     parser = argparse.ArgumentParser(description='Предсказание действия с помощью LSTM-GCN модели')
@@ -13,7 +14,10 @@ def main():
     args = parser.parse_args()
 
     # Создаем модель
-    model = LSTMSkeletonNet(num_classes=60)
+    params = action_models["LSTMSkeletonNet"]["params"]
+    model = LSTMSkeletonNet(num_classes=params['num_classes'], input_size=params["input_size"],
+                            hidden_size=params["hidden_size"], num_layers=params["num_layers"],
+                            dropout=params["dropout"], bodies=params["bodies"])
 
     # Загружаем веса
     try:

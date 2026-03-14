@@ -9,7 +9,7 @@ class LSTM_model:
         self.threshold = threshold
         self.model=LSTMSkeletonNet(num_classes=params['num_classes'], input_size=params["input_size"],
                                    hidden_size=params["hidden_size"], num_layers=params["num_layers"],
-                                   dropout=params["dropout"]).to(DEVICE)
+                                   dropout=params["dropout"], bodies=params["bodies"]).to(DEVICE)
         self.model.load_weights(params["weights"])
 
     def predict(self,poses):

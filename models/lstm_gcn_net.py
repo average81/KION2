@@ -28,7 +28,7 @@ CLASSES = [
     'heels down', 'side kick', 'round house kick', 'fore kick', 'side kick 2',
     'side lunge'
 ]
-DECIMATION = 3
+DECIMATION = 1
 # %%
 # ==============================================================================
 # 2. ФУНКЦИИ ОБРАБОТКИ ДАННЫХ (без изменений)
@@ -68,8 +68,8 @@ def normalize_skeleton(data):
     if np.max(np.abs(data)) < 1e-6: return data
     hip = data[:, :, 0, :].copy()
     data = data - hip[:, :, np.newaxis, :]
-    scale = np.max(np.abs(data))
-    if scale > 1e-6: data = data / scale
+    data = (data - data.min()) / (data.max() - data.min() + 1e-8)
+    data = data - 0.5
     return data
 
 def interpolate_frames(data, target=30):
@@ -96,37 +96,61 @@ def extract_label(filename):
 # 3. DATASET И МОДЕЛЬ
 # ==============================================================================
 class SkeletonDataset(Dataset):
-    def __init__(self, files, skeleton_dir):
+    def __init__(self, files, skeleton_dir, bodies):
         self.files = files
         self.skeleton_dir = skeleton_dir
+        self.bodies = bodies
     def __len__(self): return len(self.files)
     def __getitem__(self, idx):
         filepath = os.path.join(self.skeleton_dir, self.files[idx])
         data = parse_skeleton(filepath)
         if data is None: return self[0]
         data = normalize_skeleton(data)
-        #если кадров в файле больше 30 * DECIMATION, то берем случайно 60 последовательных
-        if len(data)>30 * DECIMATION:
-            start = random.randint(0,len(data)-30 * DECIMATION + 1)
-            data = data[start:start + 30 * DECIMATION]
-        data = interpolate_frames(data, target=30 * DECIMATION)
-        # Прореживаем кадры до 30
+        #если кадров в файле больше 60 * DECIMATION, то берем случайно 60 * DECIMATION последовательных
+        if len(data)>60 * DECIMATION:
+            start = random.randint(0,len(data)-60 * DECIMATION + 1)
+            data = data[start:start + 60 * DECIMATION]
+        data = interpolate_frames(data, target=60 * DECIMATION)
+        # Прореживаем кадры до 60
         data = data[::DECIMATION]
-        # Усредняем по телам → (30, 25, 3), есть над чем поработать, добавит ошибок, если несколько тел
-        data = data.mean(axis=1)  # или data[:, 0, ...] для первого тела
-        tensor = torch.FloatTensor(data).permute(0, 1, 2)  # (T, C, V)
+
+        data = data[:,:self.bodies,...]
+        # Дублируем, если тел меньше, чем self.bodies
+        if data.ndim == 3:
+            data = np.expand_dims(data, axis=1)  # Убедимся, что ось M есть
+        if data.shape[1] < self.bodies:
+            body_to_duplicate = data[:, 0:1, :, :]  # (T, 1, V, C)
+            num_to_duplicate = self.bodies - data.shape[1]
+            duplicates = np.tile(body_to_duplicate, (1, num_to_duplicate, 1, 1))  # (T, num_to_duplicate, V, C)
+            data = np.concatenate([data, duplicates], axis=1)
+        
+        # Перемещаем ось тел внутрь признаков: (T, 2, C, V) → (T, C*2, V)
+        #data = data.transpose(0, 2, 1, 3)  # (T, C, 2, V)
+        #data = data.reshape(data.shape[0], data.shape[1] * data.shape[2], data.shape[3])  # (T, C*2, V)
+        tensor = torch.FloatTensor(data)  # (T, C*2, V)
         label = extract_label(self.files[idx])
         return tensor, label
 
 class LSTMSkeletonNet(nn.Module):
-    def __init__(self, num_classes=60, input_size=75, hidden_size=256, num_layers=2, dropout=0.3):
+    def __init__(self, num_classes=60, input_size=75,bodies = 2, hidden_size=256, num_layers=2, dropout=0.3):
         super().__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
+        self.bodies = bodies
+        self.mask_threshold = 1e-3
 
+        # Добавляем 1D-свёртку на вход
+        self.conv1d = nn.Conv1d(
+            in_channels=input_size * bodies,  # (C*V) — признаки по всем суставам
+            out_channels=input_size * bodies,  # Сохраняем размерность
+            kernel_size=3,
+            padding=1
+        )
+        self.bn = nn.BatchNorm1d(input_size * bodies)
+        self.relu = nn.ReLU()
         # LSTM принимает (batch, seq_len, input_size)
         self.lstm = nn.LSTM(
-            input_size=input_size,     # 25 суставов × 3 координаты = 75
+            input_size=input_size * bodies,     # 25 суставов × 3 координаты
             hidden_size=hidden_size,
             num_layers=num_layers,
             batch_first=True,
@@ -142,18 +166,30 @@ class LSTMSkeletonNet(nn.Module):
         )
 
     def forward(self, x):
-        # Вход: (N, T, C, V) → хотим (N, T, C*V)
-        N, T, C, V = x.shape
-        x = x.view(N, T, -1)  # (N, 30, 75)
+        # Вход: (N, T, M, C, V) → хотим (N, T, C*V)
+        N, T, M, C, V = x.shape
 
-        # LSTM
-        lstm_out, (hidden, _) = self.lstm(x)  # hidden: (num_layers, N, hidden_size)
+        # Перегруппируем признаки: (N, T, M, C, V) -> (N, T, M, C*V)
+        x = x.contiguous().view(N, T, M, -1)  # (N, T, M, 75)
 
-        # Берём последнее состояние
-        out = hidden[-1]  # (N, hidden_size)
+        # Транспонируем для применения Conv1d: (N, T, M, 75) -> (N*M, 75, T)
+        xm = x.view(N, T, -1).transpose(1, 2)  # (N*M, 75, T)
 
-        # Классификация
-        return self.classifier(out)
+        # Применяем 1D-свёртку + BN + ReLU
+        xm = self.conv1d(xm)  # (N, 150, T)
+        xm = self.bn(xm)      # (N, 150, T)
+        xm = self.relu(xm)
+
+        # Возвращаем в форму (N, T, 150)
+        xm = xm.transpose(1, 2)
+
+        # LSTM: вход (T, N*M, input_size), выход (T, N*M, hidden_size)
+        lstm_out, (hidden, _) = self.lstm(xm)  # hidden: (num_layers, N*M, hidden_size)
+
+        # Берём последний слой скрытого состояния: (N*M, hidden_size)
+        h_last = hidden[-1]  # (N*M, hidden_size)
+
+        return self.classifier(h_last)
 
     def train_model(self, config_path: str):
         """
@@ -190,8 +226,8 @@ class LSTMSkeletonNet(nn.Module):
         train_files, val_files = train_test_split(all_files, test_size=0.2, random_state=42)
         print(f"📊 Train: {len(train_files)}, Val: {len(val_files)}")
 
-        train_dataset = SkeletonDataset(train_files, skeleton_dir)
-        val_dataset = SkeletonDataset(val_files, skeleton_dir)
+        train_dataset = SkeletonDataset(train_files, skeleton_dir, self.bodies)
+        val_dataset = SkeletonDataset(val_files, skeleton_dir, self.bodies)
 
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,
                                   num_workers=num_workers, pin_memory=True)
@@ -259,6 +295,26 @@ class LSTMSkeletonNet(nn.Module):
             writer.add_scalar('Accuracy/val', val_acc, epoch+1)
             writer.add_scalar('LearningRate', optimizer.param_groups[0]['lr'], epoch+1)
 
+            # Логирование дополнительных метрик при валидации
+            if (epoch + 1) % 5 == 0:  # Каждые 5 эпох для экономии времени
+                self.eval()
+                all_labels = []
+                all_preds = []
+                with torch.no_grad():
+                    for data, labels in val_loader:
+                        data, labels = data.to(device), labels.to(device)
+                        outputs = self(data)
+                        _, predicted = outputs.max(1)
+                        all_labels.extend(labels.cpu().numpy())
+                        all_preds.extend(predicted.cpu().numpy())
+                
+                from sklearn.metrics import precision_recall_fscore_support
+                precision, recall, f1, _ = precision_recall_fscore_support(all_labels, all_preds, average='macro')
+                
+                writer.add_scalar('Precision/val', precision, epoch+1)
+                writer.add_scalar('Recall/val', recall, epoch+1)
+                writer.add_scalar('F1-Score/val', f1, epoch+1)
+
             print(f"Epoch {epoch+1}/{epochs} | "
                   f"Loss: {train_loss/len(train_loader):.3f} | "
                   f"Train: {train_acc:.2f}% | Val: {val_acc:.2f}%")
@@ -266,6 +322,28 @@ class LSTMSkeletonNet(nn.Module):
         writer.close()
         print(f"\n✅ Тренировка завершена! Лучшая точность: {best_acc:.2f}%")
         print(f"📊 TensorBoard: %tensorboard --logdir runs")
+
+        # Вычисление дополнительных метрик на валидационной выборке
+        self.eval()
+        all_labels = []
+        all_preds = []
+        with torch.no_grad():
+            for data, labels in val_loader:
+                data, labels = data.to(device), labels.to(device)
+                outputs = self(data)
+                _, predicted = outputs.max(1)
+                all_labels.extend(labels.cpu().numpy())
+                all_preds.extend(predicted.cpu().numpy())
+        
+        from sklearn.metrics import classification_report
+        report = classification_report(all_labels, all_preds, target_names=CLASSES, digits=4)
+        print("\n📋 Полный отчёт по классификации на валидационной выборке:")
+        print(report)
+        
+        # Дополнительно выведем средние метрики
+        from sklearn.metrics import precision_recall_fscore_support
+        precision, recall, f1, _ = precision_recall_fscore_support(all_labels, all_preds, average='macro')
+        print(f"\n📊 Средние метрики (macro avg):\n   Precision: {precision:.4f}\n   Recall:    {recall:.4f}\n   F1-Score:  {f1:.4f}")
 
     def predict(self, data):
         """
@@ -340,32 +418,54 @@ class LSTMSkeletonNet(nn.Module):
             # Сортируем по номеру кадра
             sorted_poses = sorted(data, key=lambda x: getattr(x, 'frame_idx', 0))
 
-            sequence = []
+            frames = {}
             for pose in sorted_poses:
+                frame_idx = getattr(pose, 'frame_idx', 0)
+                person_id = getattr(pose, 'id', 0)
+
+                if frame_idx not in frames:
+                    frames[frame_idx] = {}
+
                 keypoints_3d = []
-                for joint_idx in range(25): #25 первых записей
+                for joint_idx in range(25):
                     kpt = pose.keypoints[joint_idx]
-                    # Предполагаем Z=0 для 2D поз
                     keypoints_3d.append([kpt[0], kpt[1], 0.0])
-                sequence.append(keypoints_3d)
+
+                frames[frame_idx][person_id] = keypoints_3d
+
+            # Преобразуем в массив (T, M, V, C)
+            sorted_frames = sorted(frames.items())
+            max_persons = max(len(frame_data) for _, frame_data in sorted_frames)
+            sequence = []
+            for _, frame_data in sorted_frames:
+                frame_joints = [frame_data[i] for i in sorted(frame_data.keys())]
+                while len(frame_joints) < max_persons:
+                    frame_joints.append([[0,0,0]] * 25)
+                sequence.append(frame_joints[:self.bodies])
 
             data = np.array(sequence, dtype=np.float32)
-            data = data.reshape(-1, 1, 25, 3)  # (T, M, V, C)
         else:
             raise TypeError(f"Неподдерживаемый тип данных: {type(data)}")
 
         # Обработка данных
-        #если кадров в файле больше 60, то берем случайно 60 последовательных
-        if len(data)>30 * DECIMATION:
-            start = random.randint(0,len(data)-30 * DECIMATION + 1)
-            data = data[start:start + 30 * DECIMATION]
+        #если кадров в файле больше 60* DECIMATION, то берем случайно 60* DECIMATION последовательных
+        #if len(data)>60 * DECIMATION:
+        #    start = random.randint(0,len(data)-60 * DECIMATION + 1)
+        #    data = data[start:start + 60 * DECIMATION]
         data = normalize_skeleton(data)
-        data = interpolate_frames(data, target=30 * DECIMATION)
+        data = interpolate_frames(data, target=60 * DECIMATION)
         # Прореживаем данные
-        data = data[::DECIMATION]
-        data = data.mean(axis=1)  # Усредняем по телам
+        #data = data[::DECIMATION]
+        #data = data.mean(axis=1)  # Усредняем по телам
+        data = data[:,:self.bodies,...]
+        if data.shape[1] < self.bodies:
+            body_to_duplicate = data[:, 0:1, :, :]
+            num_to_duplicate = self.bodies - data.shape[1]
+            duplicates = np.tile(body_to_duplicate, (1, num_to_duplicate, 1, 1))
+            data = np.concatenate([data, duplicates], axis=1)
+
         tensor = torch.FloatTensor(data).unsqueeze(0)  # Добавляем batch dimension
-        tensor = tensor.permute(0, 1, 2, 3)  # (1, T, C, V)
+
 
         # Предсказание
         with torch.no_grad():
