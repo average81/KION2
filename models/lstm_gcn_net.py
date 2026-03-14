@@ -13,22 +13,68 @@ import yaml
 import random
 
 CLASSES = [
-    'drink water', 'eat meal', 'brushing teeth', 'brushing hair', 'drop',
-    'pickup', 'throw', 'sitting down', 'standing up', 'clapping', 'reading',
-    'writing', 'tear up paper', 'wear jacket', 'taking off jacket',
-    'wear a shoe', 'taking off a shoe', 'wear socks', 'taking off socks',
-    'stretching arm', 'kicking', 'punching', 'kicking 2', 'punching 2',
-    'falling', 'hammering', 'kicking something', 'punching 3', 'dancing',
-    'kicking 3', 'writing 2', 'taking a selfie', 'checking time',
-    'rub two hands together', 'walking zigzag', 'walking with irregular speed',
-    'walking with heavy steps', 'arm circles', 'arm swings', 'lunge',
-    'squats', 'banded squats', 'arm curls', 'prior box squats', 'pushups',
-    'bench press', 'deadlift', 'jump jacks', 'rowing', 'running on treadmill',
-    'situps', 'lunges', 'jump rope', 'pushup jacks', 'high knees',
-    'heels down', 'side kick', 'round house kick', 'fore kick', 'side kick 2',
-    'side lunge'
+    "drink water",
+    "eat meal/snack",
+    "brushing teeth",
+    "brushing hair",
+    "drop",
+    "pickup",
+    "throw",
+    "sitting down",
+    "standing up (from sitting position)",
+    "clapping",
+    "reading",
+    "writing",
+    "tear up paper",
+    "wear jacket",
+    "take off jacket",
+    "wear a shoe",
+    "take off a shoe",
+    "wear on glasses",
+    "take off glasses",
+    "put on a hat/cap",
+    "take off a hat/cap",
+    "cheer up",
+    "hand waving",
+    "kicking something",
+    "reach into pocket",
+    "hopping (one foot jumping)",
+    "jump up",
+    "make a phone call/answer phone",
+    "playing with phone/tablet",
+    "typing on a keyboard",
+    "pointing to something with finger",
+    "taking a selfie",
+    "check time (from watch)",
+    "rub two hands together",
+    "nod head/bow",
+    "shake head",
+    "wipe face",
+    "salute",
+    "put the palms together",
+    "cross hands in front (say stop)",
+    "sneeze/cough",
+    "staggering",
+    "falling",
+    "touch head (headache)",
+    "touch chest (stomachache/heart pain)",
+    "touch back (backache)",
+    "touch neck (neckache)",
+    "nausea or vomiting condition",
+    "use a fan (with hand or paper)/feeling warm",
+    "punching/slapping other person",
+    "kicking other person",
+    "pushing other person",
+    "pat on back of other person",
+    "point finger at the other person",
+    "hugging other person",
+    "giving something to other person",
+    "touch other person's pocket",
+    "handshaking",
+    "walking towards each other",
+    "walking apart from each other"
 ]
-DECIMATION = 1
+DECIMATION = 2
 # %%
 # ==============================================================================
 # 2. ФУНКЦИИ ОБРАБОТКИ ДАННЫХ (без изменений)
@@ -53,19 +99,25 @@ def parse_skeleton(filepath):
             for _ in range(min(num_joints, 25)):
                 if idx >= len(lines): break
                 parts = lines[idx].split()
-                if len(parts) >= 3:
-                    x, y, z = float(parts[0]), float(parts[1]), float(parts[2])
-                    joints.append([x, y, z] if abs(x) < 100 else [0,0,0])
-                else: joints.append([0,0,0])
+                if len(parts) >= 7:
+                    x, y = float(parts[5]), float(parts[6])
+                    joints.append([x, y])
+                else: joints.append([0,0])
                 idx += 1
-            while len(joints) < 25: joints.append([0,0,0])
+            while len(joints) < 25: joints.append([0,0])
             frame_data.append(joints)
-        while len(frame_data) < 2: frame_data.append([[0,0,0]]*25)
+        while len(frame_data) < 2: frame_data.append([[0,0]]*25)
         data.append(frame_data)
     return np.array(data, dtype=np.float32)
 
+def augment_skeleton(data, noise_std=0.01):
+    noise = np.random.normal(0, noise_std, data.shape).astype(np.float32)
+    return data + noise
+
 def normalize_skeleton(data):
     if np.max(np.abs(data)) < 1e-6: return data
+    # Заменяем NaN на нули
+    data = np.nan_to_num(data, nan=0.0)
     hip = data[:, :, 0, :].copy()
     data = data - hip[:, :, np.newaxis, :]
     data = (data - data.min()) / (data.max() - data.min() + 1e-8)
@@ -106,6 +158,9 @@ class SkeletonDataset(Dataset):
         data = parse_skeleton(filepath)
         if data is None: return self[0]
         data = normalize_skeleton(data)
+        #Аугментация
+        data = augment_skeleton(data)
+        #print(data.min(),data.max())
         #если кадров в файле больше 60 * DECIMATION, то берем случайно 60 * DECIMATION последовательных
         if len(data)>60 * DECIMATION:
             start = random.randint(0,len(data)-60 * DECIMATION + 1)
@@ -132,7 +187,7 @@ class SkeletonDataset(Dataset):
         return tensor, label
 
 class LSTMSkeletonNet(nn.Module):
-    def __init__(self, num_classes=60, input_size=75,bodies = 2, hidden_size=256, num_layers=2, dropout=0.3):
+    def __init__(self, num_classes=60, input_size=50, bodies = 2, hidden_size=256, num_layers=2, dropout=0.3):
         super().__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
@@ -150,16 +205,16 @@ class LSTMSkeletonNet(nn.Module):
         self.relu = nn.ReLU()
         # LSTM принимает (batch, seq_len, input_size)
         self.lstm = nn.LSTM(
-            input_size=input_size * bodies,     # 25 суставов × 3 координаты
+            input_size=input_size * bodies,     # 25 суставов × 2 координаты
             hidden_size=hidden_size,
             num_layers=num_layers,
             batch_first=True,
             dropout=dropout if num_layers > 1 else 0,
-            bidirectional=False
+            bidirectional=True
         )
         self.classifier = nn.Sequential(
             nn.Dropout(dropout),
-            nn.Linear(hidden_size, 256),
+            nn.Linear(hidden_size * 2, 256),
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(256, num_classes)
@@ -168,26 +223,22 @@ class LSTMSkeletonNet(nn.Module):
     def forward(self, x):
         # Вход: (N, T, M, C, V) → хотим (N, T, C*V)
         N, T, M, C, V = x.shape
-
         # Перегруппируем признаки: (N, T, M, C, V) -> (N, T, M, C*V)
-        x = x.contiguous().view(N, T, M, -1)  # (N, T, M, 75)
-
-        # Транспонируем для применения Conv1d: (N, T, M, 75) -> (N*M, 75, T)
-        xm = x.view(N, T, -1).transpose(1, 2)  # (N*M, 75, T)
-
+        x = x.contiguous().view(N, T, M, -1)  # (N, T, M, 50)
+        # Транспонируем для применения Conv1d: (N, T, M, 50) -> (N, 50*M, T)
+        xm = x.permute(0, 3, 2, 1).contiguous().view(N, -1, T)  # (N, 50*M, T)
         # Применяем 1D-свёртку + BN + ReLU
-        xm = self.conv1d(xm)  # (N, 150, T)
-        xm = self.bn(xm)      # (N, 150, T)
+        xm = self.conv1d(xm)  # (N, 50*M, T)
+        xm = self.bn(xm)      # (N, 50*M, T)
         xm = self.relu(xm)
 
-        # Возвращаем в форму (N, T, 150)
-        xm = xm.transpose(1, 2)
-
-        # LSTM: вход (T, N*M, input_size), выход (T, N*M, hidden_size)
-        lstm_out, (hidden, _) = self.lstm(xm)  # hidden: (num_layers, N*M, hidden_size)
-
-        # Берём последний слой скрытого состояния: (N*M, hidden_size)
-        h_last = hidden[-1]  # (N*M, hidden_size)
+        # Возвращаем в форму (N, T, 50*M)
+        xm = xm.transpose(1, 2).view(N, T, -1)
+        # LSTM: вход (N, T, input_size*M), выход (N, T, hidden_size)
+        lstm_out, (hidden, _) = self.lstm(xm)  # hidden: (num_layers, N, hidden_size)
+        # Берём последний слой скрытого состояния: (num_layers, N, hidden_size)
+        h_last = hidden[-2:]  # последние два слоя: forward и backward
+        h_last = torch.cat([h_last[0], h_last[1]], dim=1)  # конкатенируем
 
         return self.classifier(h_last)
 
@@ -256,6 +307,7 @@ class LSTMSkeletonNet(nn.Module):
                 outputs = self(data)
                 loss = criterion(outputs, labels)
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=1.0)
                 optimizer.step()
 
                 train_loss += loss.item()
