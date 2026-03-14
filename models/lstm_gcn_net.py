@@ -110,7 +110,7 @@ def parse_skeleton(filepath):
         data.append(frame_data)
     return np.array(data, dtype=np.float32)
 
-def augment_skeleton(data, noise_std=0.01):
+def augment_skeleton(data, noise_std=0.05):
     noise = np.random.normal(0, noise_std, data.shape).astype(np.float32)
     return data + noise
 
@@ -120,8 +120,8 @@ def normalize_skeleton(data):
     data = np.nan_to_num(data, nan=0.0)
     hip = data[:, :, 0, :].copy()
     data = data - hip[:, :, np.newaxis, :]
-    data = (data - data.min()) / (data.max() - data.min() + 1e-8)
-    data = data - 0.5
+    scale = np.max(np.abs(data)) - np.min(np.abs(data))
+    if scale > 1e-6: data = (data - np.min(np.abs(data))) / scale - 0.5
     return data
 
 def interpolate_frames(data, target=30):
@@ -178,34 +178,33 @@ class SkeletonDataset(Dataset):
             num_to_duplicate = self.bodies - data.shape[1]
             duplicates = np.tile(body_to_duplicate, (1, num_to_duplicate, 1, 1))  # (T, num_to_duplicate, V, C)
             data = np.concatenate([data, duplicates], axis=1)
-        
-        # Перемещаем ось тел внутрь признаков: (T, 2, C, V) → (T, C*2, V)
-        #data = data.transpose(0, 2, 1, 3)  # (T, C, 2, V)
-        #data = data.reshape(data.shape[0], data.shape[1] * data.shape[2], data.shape[3])  # (T, C*2, V)
+
+        # Меняем местами C и V: (T, M, V, C) → (T, M, C, V)
+        data = data.transpose(0, 1, 3, 2)
         tensor = torch.FloatTensor(data)  # (T, C*2, V)
         label = extract_label(self.files[idx])
         return tensor, label
 
 class LSTMSkeletonNet(nn.Module):
-    def __init__(self, num_classes=60, input_size=50, bodies = 2, hidden_size=256, num_layers=2, dropout=0.3):
+    def __init__(self, num_classes=60, input_size=50, bodies = 2, hidden_size=256, num_layers=2, dropout=0.3, fusion='sum'):
         super().__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.bodies = bodies
-        self.mask_threshold = 1e-3
+        self.fusion = fusion  # 'sum', 'mean', 'max'
 
-        # Добавляем 1D-свёртку на вход
-        self.conv1d = nn.Conv1d(
-            in_channels=input_size * bodies,  # (C*V) — признаки по всем суставам
-            out_channels=input_size * bodies,  # Сохраняем размерность
-            kernel_size=3,
-            padding=1
-        )
-        self.bn = nn.BatchNorm1d(input_size * bodies)
+        # Вход: (N, C, T, V, M) = (N, 2, T, 25, 2)
+        self.conv3d_1 = nn.Conv3d(in_channels=2, out_channels=32,
+                                  kernel_size=(3, 3, 3), padding=(1, 1, 1))
+        self.bn1 = nn.BatchNorm3d(32)
         self.relu = nn.ReLU()
+
+        self.conv3d_2 = nn.Conv3d(in_channels=32, out_channels=64,
+                                  kernel_size=(3, 3, 3), padding=(1, 1, 1))
+        self.bn2 = nn.BatchNorm3d(64)
         # LSTM принимает (batch, seq_len, input_size)
         self.lstm = nn.LSTM(
-            input_size=input_size * bodies,     # 25 суставов × 2 координаты
+            input_size=64,     # 25 суставов × 2 координаты
             hidden_size=hidden_size,
             num_layers=num_layers,
             batch_first=True,
@@ -223,19 +222,20 @@ class LSTMSkeletonNet(nn.Module):
     def forward(self, x):
         # Вход: (N, T, M, C, V) → хотим (N, T, C*V)
         N, T, M, C, V = x.shape
-        # Перегруппируем признаки: (N, T, M, C, V) -> (N, T, M, C*V)
-        x = x.contiguous().view(N, T, M, -1)  # (N, T, M, 50)
-        # Транспонируем для применения Conv1d: (N, T, M, 50) -> (N, 50*M, T)
-        xm = x.permute(0, 3, 2, 1).contiguous().view(N, -1, T)  # (N, 50*M, T)
-        # Применяем 1D-свёртку + BN + ReLU
-        xm = self.conv1d(xm)  # (N, 50*M, T)
-        xm = self.bn(xm)      # (N, 50*M, T)
-        xm = self.relu(xm)
+        assert C == 2, f"Ожидалось 2 координаты (x,y), получено {C}"
+        assert V == 25, f"Ожидалось 25 суставов, получено {V}"
+        x = x.permute(0, 3, 1, 4, 2).contiguous()  # (N, C, T, V, M)
+        # Применяем 3D-свёртки
+        x = self.relu(self.bn1(self.conv3d_1(x)))   # (N, 32, T, V, M)
+        x = self.relu(self.bn2(self.conv3d_2(x)))   # (N, 64, T, V, M)
 
-        # Возвращаем в форму (N, T, 50*M)
-        xm = xm.transpose(1, 2).view(N, T, -1)
+        # Усредняем по суставам и телам: (N, 64, T, V, M) → (N, 64, T)
+        x = x.mean(dim=[3, 4])  # (N, 64, T)
+
+        # Транспонируем для LSTM: (N, T, 64)
+        x = x.transpose(1, 2)
         # LSTM: вход (N, T, input_size*M), выход (N, T, hidden_size)
-        lstm_out, (hidden, _) = self.lstm(xm)  # hidden: (num_layers, N, hidden_size)
+        lstm_out, (hidden, _) = self.lstm(x)  # hidden: (num_layers, N, hidden_size)
         # Берём последний слой скрытого состояния: (num_layers, N, hidden_size)
         h_last = hidden[-2:]  # последние два слоя: forward и backward
         h_last = torch.cat([h_last[0], h_last[1]], dim=1)  # конкатенируем
@@ -261,9 +261,21 @@ class LSTMSkeletonNet(nn.Module):
         weight_decay = config['training'].get('weight_decay', 0.01)
         num_workers = config['training'].get('num_workers', 8)
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        pretrained_weights = config['training'].get('pretrained_weights', None)  # ✅ Новый параметр
 
         print(f"🔧 Устройство: {device}")
         print(f"📊 Конфигурация: {config_path}")
+        # Загрузка предобученных весов ДО оптимизатора
+        if pretrained_weights and os.path.exists(pretrained_weights):
+            print(f"🔄 Загружаем предобученные веса из: {pretrained_weights}")
+            try:
+                self.load_state_dict(torch.load(pretrained_weights, map_location=device))
+                print("✅ Веса успешно загружены")
+            except Exception as e:
+                print(f"❌ Ошибка при загрузке весов: {e}")
+                raise
+        elif pretrained_weights:
+            raise FileNotFoundError(f"Файл с весами не найден: {pretrained_weights}")
 
         # TensorBoard
         run_name = f"lstm_run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
@@ -287,7 +299,7 @@ class LSTMSkeletonNet(nn.Module):
 
         # Перемещаем модель на устройство
         self.to(device)
-        criterion = nn.CrossEntropyLoss()
+        criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
         optimizer = torch.optim.AdamW(self.parameters(), lr=lr, weight_decay=weight_decay)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 
