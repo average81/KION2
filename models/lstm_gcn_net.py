@@ -111,7 +111,13 @@ def parse_skeleton(filepath):
     return np.array(data, dtype=np.float32)
 
 def augment_skeleton(data, noise_std=0.05):
+    flip_prob = 0.2
     noise = np.random.normal(0, noise_std, data.shape).astype(np.float32)
+    scale = random.uniform(0.9, 1)
+    data = data * scale
+    # Случайное отражение (по оси X) — только если действия симметричны
+    if random.random() < flip_prob:
+        data[..., 0] = -data[..., 0]  # инвертируем X координату
     return data + noise
 
 def normalize_skeleton(data):
@@ -162,10 +168,11 @@ class SkeletonDataset(Dataset):
         data = augment_skeleton(data)
         #print(data.min(),data.max())
         #если кадров в файле больше 60 * DECIMATION, то берем случайно 60 * DECIMATION последовательных
-        if len(data)>60 * DECIMATION:
-            start = random.randint(0,len(data)-60 * DECIMATION + 1)
-            data = data[start:start + 60 * DECIMATION]
-        data = interpolate_frames(data, target=60 * DECIMATION)
+        if len(data) > 60 * DECIMATION:
+            id = np.linspace(0, len(data) - 1, 60 * DECIMATION).astype(int)
+            data = data[id]
+        else:
+            data = interpolate_frames(data, target=60 * DECIMATION)
         # Прореживаем кадры до 60
         data = data[::DECIMATION]
 
@@ -185,6 +192,51 @@ class SkeletonDataset(Dataset):
         label = extract_label(self.files[idx])
         return tensor, label
 
+class GCN(nn.Module):
+    def __init__(self, in_channels, out_channels, adj_matrix):
+        super(GCN, self).__init__()
+        self.adj = adj_matrix
+        self.W = nn.Linear(in_channels, out_channels)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        # x: (N, T, C, V) → GCN применяется по V (суставам)
+        N, T, C, V = x.size()
+        x = x.contiguous().view(N * T, C, V)  # → (N*T, C, V)
+
+        # Нормализация adjacency matrix (симметричная)
+        adj = self.adj.to(x.device)
+        D = torch.sum(adj, dim=1)  # Степени узлов
+        D_inv_sqrt = torch.diag(torch.pow(D, -0.5))
+        D_inv_sqrt[torch.isinf(D_inv_sqrt)] = 0.
+        adj_norm = torch.mm(torch.mm(D_inv_sqrt, adj), D_inv_sqrt)
+        #Residual connection
+        x_res = x  # (N*T, C, V)
+        # Применяем GCN: X' = ReLU( A @ X^T @ W )
+        x = x.transpose(1, 2)  # → (N*T, V, C)
+        x = torch.matmul(adj_norm, x)  # → (N*T, V, C)
+        x = self.W(x)  # → (N*T, V, out_channels)
+        x = x.transpose(1, 2)  # → (N*T, out_channels, V)
+        x = x + x_res  # Residual
+        x = x.view(N, T, -1, V)  # → (N, T, out_channels, V)
+        return self.relu(x)
+class GCNBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, adj_matrix, use_temporal_conv=True):
+        super().__init__()
+        self.gcn = GCN(in_channels, out_channels, adj_matrix)
+        if use_temporal_conv:
+            self.tcn = nn.Conv2d(out_channels, out_channels, kernel_size=(3,1), padding=(1,0))
+            self.relu = nn.ReLU()
+            self.bn = nn.BatchNorm2d(out_channels)
+
+    def forward(self, x):
+        # x: (N, T, C, V)
+        x = self.gcn(x)  # (N, T, C, V)
+        x = x.permute(0, 2, 1, 3)  # (N, C, T, V)
+        x = self.tcn(x)  # (N, C, T, V)
+        x = self.relu(self.bn(x))
+        x = x.permute(0, 2, 1, 3)  # (N, T, C, V)
+        return x
 class LSTMSkeletonNet(nn.Module):
     def __init__(self, num_classes=60, input_size=50, bodies = 2, hidden_size=256, num_layers=2, dropout=0.3, fusion='sum'):
         super().__init__()
@@ -193,53 +245,127 @@ class LSTMSkeletonNet(nn.Module):
         self.bodies = bodies
         self.fusion = fusion  # 'sum', 'mean', 'max'
 
-        # Вход: (N, C, T, V, M) = (N, 2, T, 25, 2)
-        self.conv3d_1 = nn.Conv3d(in_channels=2, out_channels=32,
-                                  kernel_size=(3, 3, 3), padding=(1, 1, 1))
-        self.bn1 = nn.BatchNorm3d(32)
-        self.relu = nn.ReLU()
-
-        self.conv3d_2 = nn.Conv3d(in_channels=32, out_channels=64,
-                                  kernel_size=(3, 3, 3), padding=(1, 1, 1))
-        self.bn2 = nn.BatchNorm3d(64)
-        # LSTM принимает (batch, seq_len, input_size)
+        # Вход: (N, T, M, C, V) → хотим (N, C, T, V)
+        # Применяем Conv2d по (T, V) для извлечения временных паттернов
+        self.temporal_conv = nn.Conv2d(
+            in_channels=2,  # C (x,y координаты)
+            out_channels=64,
+            kernel_size=(9, 3),  # (временные окна, пространственные соседи)
+            padding=(4, 1)
+        )
+        self.temporal_bn = nn.BatchNorm2d(64)
+        self.temporal_relu = nn.ReLU()
+        
+        # GCN для пространственных отношений
+        self.adj_matrix = self.get_skeleton_adjacency()  # Создаём матрицу
+        self.gcn_stack = nn.Sequential(
+            GCNBlock(64, 64, self.adj_matrix),
+            GCNBlock(64, 64, self.adj_matrix),
+            GCNBlock(64, 64, self.adj_matrix)
+        )
+        
+        # Финальная обработка и классификация
+        self.fusion_conv = nn.Conv2d(64, 64, kernel_size=1)
+        self.fusion_bn = nn.BatchNorm2d(64)
+        self.joint_weights = nn.Parameter(torch.ones(25))
+        
+        # LSTM для последовательной обработки
         self.lstm = nn.LSTM(
-            input_size=64,     # 25 суставов × 2 координаты
+            input_size=64,
             hidden_size=hidden_size,
             num_layers=num_layers,
             batch_first=True,
             dropout=dropout if num_layers > 1 else 0,
             bidirectional=True
         )
+        
         self.classifier = nn.Sequential(
             nn.Dropout(dropout),
             nn.Linear(hidden_size * 2, 256),
-            nn.ReLU(),
+            nn.LayerNorm(256),
+            nn.GELU(),
             nn.Dropout(dropout),
             nn.Linear(256, num_classes)
         )
 
+    def get_skeleton_adjacency(self):
+        #Сопоставление костей и суставов для NTU-RGBD
+        num_joints = 25
+        adj = np.zeros((num_joints, num_joints), dtype=np.float32)
+
+        # Основные связи (основываясь на человеческой анатомии)
+        edges = [
+            (0, 1), (1, 20), (20, 2), (2, 3),
+            (20, 4), (4, 5), (5, 6), (6, 7),
+            (20, 8), (8, 9), (9, 10), (10, 11),
+            (20, 12), (12, 13), (13, 14), (14, 15),
+            (20, 16), (16, 17), (17, 18), (18, 19),
+            # Дополнительные (голова, шея и т.д.)
+            (0, 21), (21, 22), (22, 23), (23, 24)
+        ]
+        for i, j in edges:
+            adj[i, j] = 1
+            adj[j, i] = 1
+        
+        # Для нескольких тел: создаем блочно-диагональную матрицу
+        if self.bodies > 1:
+            # Создаем матрицу смежности для каждого тела
+            single_adj = adj.copy()
+            # Создаем блочно-диагональную матрицу для всех тел
+            adj = np.kron(np.eye(self.bodies), single_adj)
+        
+        return torch.tensor(adj, dtype=torch.float32)
     def forward(self, x):
-        # Вход: (N, T, M, C, V) → хотим (N, T, C*V)
+        # Вход: (N, T, M, C, V)
         N, T, M, C, V = x.shape
         assert C == 2, f"Ожидалось 2 координаты (x,y), получено {C}"
         assert V == 25, f"Ожидалось 25 суставов, получено {V}"
-        x = x.permute(0, 3, 1, 4, 2).contiguous()  # (N, C, T, V, M)
-        # Применяем 3D-свёртки
-        x = self.relu(self.bn1(self.conv3d_1(x)))   # (N, 32, T, V, M)
-        x = self.relu(self.bn2(self.conv3d_2(x)))   # (N, 64, T, V, M)
-
-        # Усредняем по суставам и телам: (N, 64, T, V, M) → (N, 64, T)
-        x = x.mean(dim=[3, 4])  # (N, 64, T)
-
-        # Транспонируем для LSTM: (N, T, 64)
-        x = x.transpose(1, 2)
-        # LSTM: вход (N, T, input_size*M), выход (N, T, hidden_size)
-        lstm_out, (hidden, _) = self.lstm(x)  # hidden: (num_layers, N, hidden_size)
-        # Берём последний слой скрытого состояния: (num_layers, N, hidden_size)
+        
+        # Объединяем размерности тел и признаков: (N, T, M, C, V) → (N, T, C, V, M)
+        x = x.permute(0, 1, 3, 4, 2).contiguous()  # (N, T, C, V, M)
+        
+        # Сохраняем информацию о взаимодействии между телами, не усредняя по M
+        # Формируем признаки, объединяя данные всех тел: (N, T, C, V, M) → (N, T, C, V*M)
+        x = x.view(N, T, C, -1)  # (N, T, C, V*M)
+        
+        # Транспонируем для Conv2d: (N, T, C, V*M) → (N, C, T, V*M)
+        x = x.permute(0, 2, 1, 3).contiguous()  # (N, C, T, V*M)
+        
+        # Обновляем размерность V для учета объединенных данных тел
+        V_effective = V * M  # Эффективное количество суставов после объединения тел
+        
+        # Применяем Conv2d по (T, V*M) для извлечения временных паттернов
+        x = self.temporal_conv(x)  # (N, 64, T, V*M)
+        x = self.temporal_bn(x)
+        x = self.temporal_relu(x)
+        
+        # Транспонируем для GCN: (N, 64, T, V*M) → (N, T, 64, V*M)
+        x = x.permute(0, 2, 1, 3).contiguous()  # (N, T, 64, V*M)
+        
+        # Применяем GCN для пространственных отношений
+        x = self.gcn_stack(x)  # (N, T, 64, V*M)
+        
+        # Вернём обратно в (N, 64, T, V*M)
+        x = x.permute(0, 2, 1, 3).contiguous()  # (N, 64, T, V*M)
+        
+        # Финальная обработка
+        x = self.fusion_bn(self.fusion_conv(x))  # (N, 64, T, V*M)
+        # Создаем веса для каждого тела и сустава
+        joint_weights_expanded = self.joint_weights.view(1, 1, 1, V, 1).expand(-1, -1, -1, -1, M)
+        joint_weights_flat = joint_weights_expanded.reshape(1, 1, 1, V * M)  # (1, 1, 1, V*M)
+        x = x * joint_weights_flat  # Взвешиваем суставы
+        x = x.sum(dim=-1)  # Суммируем по суставам и телам: (N, 64, T)
+        
+        # Подготовка для LSTM: (N, 64, T) → (N, T, 64)
+        x = x.transpose(1, 2)  # (N, T, 64)
+        
+        # LSTM для последовательной обработки
+        lstm_out, (hidden, _) = self.lstm(x)  # (N, T, hidden_size*2)
+        
+        # Используем последнее скрытое состояние
         h_last = hidden[-2:]  # последние два слоя: forward и backward
         h_last = torch.cat([h_last[0], h_last[1]], dim=1)  # конкатенируем
-
+        
         return self.classifier(h_last)
 
     def train_model(self, config_path: str):
@@ -276,7 +402,8 @@ class LSTMSkeletonNet(nn.Module):
                 raise
         elif pretrained_weights:
             raise FileNotFoundError(f"Файл с весами не найден: {pretrained_weights}")
-
+        self.to(device)
+        scaler = torch.cuda.amp.GradScaler() if device.type == 'cuda' else None
         # TensorBoard
         run_name = f"lstm_run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         writer = SummaryWriter(log_dir=f'runs/{run_name}')
@@ -292,13 +419,16 @@ class LSTMSkeletonNet(nn.Module):
         train_dataset = SkeletonDataset(train_files, skeleton_dir, self.bodies)
         val_dataset = SkeletonDataset(val_files, skeleton_dir, self.bodies)
 
+        # Оптимизация DataLoader для CUDA
+        pin_memory = device.type == 'cuda'
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,
-                                  num_workers=num_workers, pin_memory=True)
+                                  num_workers=num_workers, pin_memory=pin_memory,
+                                  persistent_workers=(num_workers > 0))
         val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False,
-                                num_workers=num_workers)
+                                num_workers=num_workers, pin_memory=pin_memory,
+                                persistent_workers=(num_workers > 0))
 
-        # Перемещаем модель на устройство
-        self.to(device)
+
         criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
         optimizer = torch.optim.AdamW(self.parameters(), lr=lr, weight_decay=weight_decay)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
@@ -314,13 +444,22 @@ class LSTMSkeletonNet(nn.Module):
             self.train()
             train_loss, train_correct, train_total = 0, 0, 0
             for data, labels in tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}"):
-                data, labels = data.to(device), labels.to(device)
+                # Используем autocast для автоматического смешанного precision
+                data, labels = data.to(device, non_blocking=True), labels.to(device, non_blocking=True)
+                with torch.cuda.amp.autocast(enabled=device.type=='cuda'):
+                    outputs = self(data)
+                    loss = criterion(outputs, labels)
+                
                 optimizer.zero_grad()
-                outputs = self(data)
-                loss = criterion(outputs, labels)
-                loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=1.0)
-                optimizer.step()
+                
+                # Используем scaler для градиентов в mixed precision
+                if device.type == 'cuda':
+                    scaler.scale(loss).backward()
+                    scaler.step(optimizer)
+                    scaler.update()
+                else:
+                    loss.backward()
+                    optimizer.step()
 
                 train_loss += loss.item()
                 _, predicted = outputs.max(1)
@@ -331,14 +470,15 @@ class LSTMSkeletonNet(nn.Module):
             self.eval()
             val_loss, val_correct, val_total = 0, 0, 0
             with torch.no_grad():
-                for data, labels in val_loader:
-                    data, labels = data.to(device), labels.to(device)
-                    outputs = self(data)
-                    loss = criterion(outputs, labels)
-                    val_loss += loss.item()
-                    _, predicted = outputs.max(1)
-                    val_correct += predicted.eq(labels).sum().item()
-                    val_total += labels.size(0)
+                with torch.cuda.amp.autocast(enabled=device.type=='cuda'):
+                    for data, labels in val_loader:
+                        data, labels = data.to(device), labels.to(device)
+                        outputs = self(data)
+                        loss = criterion(outputs, labels)
+                        val_loss += loss.item()
+                        _, predicted = outputs.max(1)
+                        val_correct += predicted.eq(labels).sum().item()
+                        val_total += labels.size(0)
 
             # Метрики
             train_acc = 100. * train_correct / train_total
