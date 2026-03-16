@@ -4,3 +4,4 @@ multimodal_model: TST
 pose_action_model: LSTMSkeletonNet
 pose_ext_model: YOLOv26-Pose-N
 video_decimation: 1
+pose_ext_th: 0.1

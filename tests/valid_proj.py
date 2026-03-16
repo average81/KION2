@@ -35,11 +35,28 @@ def calculate_metrics(y_true, y_pred, classes):
     if len(y_true) == 0:
         logging.warning("No valid predictions to calculate metrics.")
         return {}
-    
+
+    # Получаем уникальные метки из y_true (и сортируем для согласованности)
+    unique_labels = np.unique(y_true)
+
+    # Ограничиваем target_names только теми классами, которые присутствуют
+    filtered_target_names = [classes[i] for i in unique_labels]
+
     # Основные метрики
-    report = classification_report(y_true, y_pred, target_names=classes, digits=4, output_dict=True)
-    precision, recall, f1, _ = precision_recall_fscore_support(y_true, y_pred, average='macro')
-    
+    report = classification_report(
+        y_true, y_pred,
+        labels=unique_labels,
+        target_names=filtered_target_names,
+        digits=4,
+        output_dict=True
+    )
+
+    # Для macro avg используем только те метки, что есть
+    precision, recall, f1, _ = precision_recall_fscore_support(
+        y_true, y_pred, average='macro', labels=unique_labels
+    )
+
+    # Добавляем общие метрики
     metrics = {
         'classification_report': report,
         'macro_avg_precision': float(precision),
@@ -47,7 +64,6 @@ def calculate_metrics(y_true, y_pred, classes):
         'macro_avg_f1': float(f1),
         'accuracy': float(report['accuracy'])
     }
-    
     return metrics
 
 def main(video_folder, config_path, output_json='validation_results.json'):
@@ -148,19 +164,20 @@ def main(video_folder, config_path, output_json='validation_results.json'):
                 
             # Фильтрация предсказаний по длительности
             valid_predictions = []
-            for action in results['pose_actions']:
-                duration = action.get('end_frame', 0) - action.get('start_frame', 0)
-                if duration >= min_duration:
+            for i,action in enumerate(results['pose_actions']):
+                if len(results['pose_actions']) == 1:
                     valid_predictions.append(action)
-                
+                else:
+                    if i < len(results['pose_actions']):
+                        valid_predictions.append(action)
+
             if not valid_predictions:
                 logger.warning(f"No valid predictions (duration >= {min_duration}) for {video_file}")
                 continue
                 
             # Берем предсказание с максимальной уверенностью среди валидных
             best_prediction = max(valid_predictions, key=lambda x: x.get('confidence', 0))
-            pred_label = best_prediction.get('predicted_action', -1)
-            
+            pred_label = best_prediction['action']['action_id']
             if pred_label == -1:
                 logger.warning(f"No predicted action in best prediction for {video_file}")
                 continue
@@ -169,7 +186,7 @@ def main(video_folder, config_path, output_json='validation_results.json'):
             y_pred.append(pred_label)
             processed_videos += 1
             
-            logger.info(f"{video_file}: true={true_label}, pred={pred_label}, confidence={best_prediction.get('confidence', 0):.3f}")
+            logger.info(f"{video_file}: true={true_label}, pred={pred_label}, confidence={best_prediction['action']['conf']:.3f}")
             
         except Exception as e:
             logger.error(f"Error processing {video_file}: {e}")

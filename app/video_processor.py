@@ -64,8 +64,9 @@ class VideoProcessor:
             )
 
             self.pose_action_classifier = PoseActionClassificator(
-                action_config['pose_action_model'],
-                action_config['act_frames'],
+                model_name=action_config['pose_action_model'],
+                action_period=action_config['act_frames'],
+                threshold = action_config['pose_ext_th'],
                 verbose=self.verbose,
             )
         else:

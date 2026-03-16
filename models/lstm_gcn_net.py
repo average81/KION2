@@ -11,6 +11,7 @@ from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 import yaml
 import random
+import json
 
 CLASSES = [
     "drink water",
@@ -118,6 +119,9 @@ def augment_skeleton(data, noise_std=0.05):
     # Случайное отражение (по оси X) — только если действия симметричны
     if random.random() < flip_prob:
         data[..., 0] = -data[..., 0]  # инвертируем X координату
+    t = np.random.randint(1, 10)
+    data = data[:-t]
+    noise = noise[:-t]
     return data + noise
 
 def normalize_skeleton(data):
@@ -126,8 +130,9 @@ def normalize_skeleton(data):
     data = np.nan_to_num(data, nan=0.0)
     hip = data[:, :, 0, :].copy()
     data = data - hip[:, :, np.newaxis, :]
-    scale = np.max(np.abs(data)) - np.min(np.abs(data))
-    if scale > 1e-6: data = (data - np.min(np.abs(data))) / scale - 0.5
+    scale = np.max(data) - np.min(data)
+    if scale > 1e-6: data = (data - data.min()) / scale - 0.5
+    #print(data.shape)
     return data
 
 def interpolate_frames(data, target=30):
@@ -221,7 +226,7 @@ class GCN(nn.Module):
         x = x.view(N, T, -1, V)  # → (N, T, out_channels, V)
         return self.relu(x)
 class GCNBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, adj_matrix, use_temporal_conv=True):
+    def __init__(self, in_channels, out_channels, adj_matrix, use_temporal_conv=False):
         super().__init__()
         self.gcn = GCN(in_channels, out_channels, adj_matrix)
         if use_temporal_conv:
@@ -232,13 +237,14 @@ class GCNBlock(nn.Module):
     def forward(self, x):
         # x: (N, T, C, V)
         x = self.gcn(x)  # (N, T, C, V)
-        x = x.permute(0, 2, 1, 3)  # (N, C, T, V)
-        x = self.tcn(x)  # (N, C, T, V)
-        x = self.relu(self.bn(x))
-        x = x.permute(0, 2, 1, 3)  # (N, T, C, V)
+        if hasattr(self, 'tcn'):
+            x = x.permute(0, 2, 1, 3)  # (N, C, T, V)
+            x = self.tcn(x)  # (N, C, T, V)
+            x = self.relu(self.bn(x))
+            x = x.permute(0, 2, 1, 3)  # (N, T, C, V)
         return x
 class LSTMSkeletonNet(nn.Module):
-    def __init__(self, num_classes=60, input_size=50, bodies = 2, hidden_size=256, num_layers=2, dropout=0.3, fusion='sum'):
+    def __init__(self, num_classes=60,bodies = 2, hidden_size=256, num_layers=2, dropout=0.3, fusion='attention'):
         super().__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
@@ -247,28 +253,45 @@ class LSTMSkeletonNet(nn.Module):
 
         # Вход: (N, T, M, C, V) → хотим (N, C, T, V)
         # Применяем Conv2d по (T, V) для извлечения временных паттернов
-        self.temporal_conv = nn.Conv2d(
-            in_channels=2,  # C (x,y координаты)
-            out_channels=64,
-            kernel_size=(9, 3),  # (временные окна, пространственные соседи)
-            padding=(4, 1)
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(
+                in_channels=2,  # C (x,y координаты)
+                out_channels=64,
+                kernel_size=(9, 3),  # (временные окна, пространственные соседи)
+                padding=(4, 1)
+            ),
+            nn.BatchNorm2d(64),
+            nn.ReLU()
         )
-        self.temporal_bn = nn.BatchNorm2d(64)
-        self.temporal_relu = nn.ReLU()
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(
+                in_channels=64,  # C (x,y координаты)
+                out_channels=64,
+                kernel_size=(7, 3),  # (временные окна, пространственные соседи)
+                padding=(3, 1)
+            ),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=(2, 1), stride=(2, 1))
+        )
         
         # GCN для пространственных отношений
         self.adj_matrix = self.get_skeleton_adjacency()  # Создаём матрицу
         self.gcn_stack = nn.Sequential(
             GCNBlock(64, 64, self.adj_matrix),
+            nn.Dropout(0.2),
             GCNBlock(64, 64, self.adj_matrix),
+            nn.Dropout(0.2),
             GCNBlock(64, 64, self.adj_matrix)
         )
         
         # Финальная обработка и классификация
         self.fusion_conv = nn.Conv2d(64, 64, kernel_size=1)
         self.fusion_bn = nn.BatchNorm2d(64)
-        self.joint_weights = nn.Parameter(torch.ones(25))
-        
+        self.joint_weights = nn.Parameter(torch.ones(self.bodies * 25))
+        self.pre_lstm_dropout = nn.Dropout(dropout)
+        self.pre_lstm_norm = nn.LayerNorm(64)  # нормализация по признакам
+
         # LSTM для последовательной обработки
         self.lstm = nn.LSTM(
             input_size=64,
@@ -291,7 +314,7 @@ class LSTMSkeletonNet(nn.Module):
     def get_skeleton_adjacency(self):
         #Сопоставление костей и суставов для NTU-RGBD
         num_joints = 25
-        adj = np.zeros((num_joints, num_joints), dtype=np.float32)
+        single_adj = np.zeros((num_joints, num_joints), dtype=np.float32)
 
         # Основные связи (основываясь на человеческой анатомии)
         edges = [
@@ -304,61 +327,64 @@ class LSTMSkeletonNet(nn.Module):
             (0, 21), (21, 22), (22, 23), (23, 24)
         ]
         for i, j in edges:
-            adj[i, j] = 1
-            adj[j, i] = 1
-        
-        # Для нескольких тел: создаем блочно-диагональную матрицу
-        if self.bodies > 1:
-            # Создаем матрицу смежности для каждого тела
-            single_adj = adj.copy()
-            # Создаем блочно-диагональную матрицу для всех тел
-            adj = np.kron(np.eye(self.bodies), single_adj)
-        
-        return torch.tensor(adj, dtype=torch.float32)
+            single_adj[i, j] = 1
+            single_adj[j, i] = 1
+        """
+        # Блочно-диагональная матрица: каждое тело — отдельный блок
+        total_joints = num_joints * self.bodies
+        adj = np.zeros((total_joints, total_joints), dtype=np.float32)
+        for b in range(self.bodies):
+            start = b * num_joints
+            end = start + num_joints
+            adj[start:end, start:end] = single_adj  # Каждое тело — независимый граф
+        """
+        return torch.tensor(single_adj, dtype=torch.float32)
     def forward(self, x):
         # Вход: (N, T, M, C, V)
         N, T, M, C, V = x.shape
         assert C == 2, f"Ожидалось 2 координаты (x,y), получено {C}"
         assert V == 25, f"Ожидалось 25 суставов, получено {V}"
+
+        x = x.permute(0, 2, 3, 1, 4).contiguous()  # → (N, M, C, T, V)
+        x = x.view(-1, C, T, V)  # (N*M, C, T, V)
+        # Применяем Conv2d
+        x = self.conv1(x)  # (N*M, 64, T, V)
+        x = self.conv2(x)  # (N*M, 64, T, V)
         
-        # Объединяем размерности тел и признаков: (N, T, M, C, V) → (N, T, C, V, M)
-        x = x.permute(0, 1, 3, 4, 2).contiguous()  # (N, T, C, V, M)
-        
-        # Сохраняем информацию о взаимодействии между телами, не усредняя по M
-        # Формируем признаки, объединяя данные всех тел: (N, T, C, V, M) → (N, T, C, V*M)
-        x = x.view(N, T, C, -1)  # (N, T, C, V*M)
-        
-        # Транспонируем для Conv2d: (N, T, C, V*M) → (N, C, T, V*M)
-        x = x.permute(0, 2, 1, 3).contiguous()  # (N, C, T, V*M)
-        
-        # Обновляем размерность V для учета объединенных данных тел
-        V_effective = V * M  # Эффективное количество суставов после объединения тел
-        
-        # Применяем Conv2d по (T, V*M) для извлечения временных паттернов
-        x = self.temporal_conv(x)  # (N, 64, T, V*M)
-        x = self.temporal_bn(x)
-        x = self.temporal_relu(x)
-        
-        # Транспонируем для GCN: (N, 64, T, V*M) → (N, T, 64, V*M)
-        x = x.permute(0, 2, 1, 3).contiguous()  # (N, T, 64, V*M)
+        # Транспонируем для GCN: (N*M, 64, T, V) → (N*M, T, 64, V)
+        x = x.permute(0, 2, 1, 3).contiguous()  # (N, T, 64, V)
         
         # Применяем GCN для пространственных отношений
-        x = self.gcn_stack(x)  # (N, T, 64, V*M)
+        #x = self.gcn_stack(x)  # (N*M, T, 64, V)
         
-        # Вернём обратно в (N, 64, T, V*M)
-        x = x.permute(0, 2, 1, 3).contiguous()  # (N, 64, T, V*M)
+        # Вернём обратно в (N*M, 64, T, V)
+        x = x.permute(0, 2, 1, 3).contiguous()  # (N*M, 64, T, V)
         
         # Финальная обработка
-        x = self.fusion_bn(self.fusion_conv(x))  # (N, 64, T, V*M)
+        x = self.fusion_bn(self.fusion_conv(x))  # (N*M, 64, T, V)
+        x = x.view(N,M, 64, T//2, V)
         # Создаем веса для каждого тела и сустава
-        joint_weights_expanded = self.joint_weights.view(1, 1, 1, V, 1).expand(-1, -1, -1, -1, M)
-        joint_weights_flat = joint_weights_expanded.reshape(1, 1, 1, V * M)  # (1, 1, 1, V*M)
-        x = x * joint_weights_flat  # Взвешиваем суставы
-        x = x.sum(dim=-1)  # Суммируем по суставам и телам: (N, 64, T)
-        
+        x = x.permute(0, 2, 3, 1, 4).contiguous()  # (N, 64, T, M, V)
+        x = x.view(N, 64, T//2, -1)
+        joint_weights_flat = self.joint_weights.view(1, 1, 1, -1).expand(-1, 64, -1, -1)  # (1, 64, 1, M*V)
+        x = x * joint_weights_flat  # (N, 64, T, M*V)
+        if self.fusion == 'sum':
+            x = (x * joint_weights_flat).sum(dim=-1)  # (N, 64, T)
+        elif self.fusion == 'mean':
+            x = (x * joint_weights_flat).mean(dim=-1)
+        elif self.fusion == 'max':
+            x = (x * joint_weights_flat).max(dim=-1)[0]
+        elif self.fusion == 'attention':
+            # Soft attention over joints
+            weights = torch.softmax(self.joint_weights.view(1, 1, 1, -1), dim=-1)
+            x = (x * weights).sum(dim=-1)  # (N, 64, T)
+        else:
+            raise ValueError(f"Unknown fusion mode: {self.fusion}")
+
         # Подготовка для LSTM: (N, 64, T) → (N, T, 64)
         x = x.transpose(1, 2)  # (N, T, 64)
-        
+        x = self.pre_lstm_norm(x)  # LayerNorm по признакам
+        x = self.pre_lstm_dropout(x)
         # LSTM для последовательной обработки
         lstm_out, (hidden, _) = self.lstm(x)  # (N, T, hidden_size*2)
         
@@ -391,6 +417,42 @@ class LSTMSkeletonNet(nn.Module):
 
         print(f"🔧 Устройство: {device}")
         print(f"📊 Конфигурация: {config_path}")
+
+        # Путь для сохранения/загрузки списков файлов
+        split_file = os.path.join(skeleton_dir, 'train_val_split.json')
+
+        # Проверяем, существует ли уже разбиение
+        if os.path.exists(split_file):
+            print(f"🔄 Загружаем существующее разбиение из {split_file}")
+            with open(split_file, 'r') as f:
+                split_data = json.load(f)
+                train_files = split_data['train_files']
+                val_files = split_data['val_files']
+            # Фильтруем только существующие файлы (на случай удаления)
+            all_available = set(os.listdir(skeleton_dir))
+            train_files = [f for f in train_files if f in all_available]
+            val_files = [f for f in val_files if f in all_available]
+            print(f"✅ Загружено: Train={len(train_files)}, Val={len(val_files)}")
+        else:
+            print(f"🆕 Создаём новое разбиение данных...")
+            all_files = [f for f in os.listdir(skeleton_dir) if f.endswith('.skeleton')]
+            print(f"📁 Всего файлов: {len(all_files)}")
+
+            train_files, val_files = train_test_split(all_files, test_size=0.2, random_state=42)
+
+            # Сохраняем разбиение
+            split_data = {
+                'train_files': train_files,
+                'val_files': val_files,
+                'split_date': datetime.now().isoformat(),
+                'total_files': len(all_files),
+                'test_size': 0.2,
+                'random_state': 42
+            }
+            with open(split_file, 'w') as f:
+                json.dump(split_data, f, indent=2)
+            print(f"✅ Разбиение сохранено в {split_file}")
+
         # Загрузка предобученных весов ДО оптимизатора
         if pretrained_weights and os.path.exists(pretrained_weights):
             print(f"🔄 Загружаем предобученные веса из: {pretrained_weights}")
@@ -599,13 +661,13 @@ class LSTMSkeletonNet(nn.Module):
                     frames[frame_idx] = []
 
                 # Извлекаем координаты суставов
-                keypoints_3d = []
+                keypoints_2d = []
                 for joint_idx in sorted(JOINTS.keys()):
                     kpt = current_pose.keypoints[joint_idx]
                     # Предполагаем Z=0 для 2D поз
-                    keypoints_3d.append([kpt[0], kpt[1], 0.0])
+                    keypoints_2d.append([kpt[5], kpt[6]])
 
-                frames[frame_idx].append(keypoints_3d)
+                frames[frame_idx].append(keypoints_2d)
 
                 # Это упрощённый пример - в реальности нужно получить последовательность
                 # из всех поз с одинаковым id через внешний источник
@@ -614,7 +676,7 @@ class LSTMSkeletonNet(nn.Module):
             # Преобразуем в массив
             sorted_frames = sorted(frames.items())
             data = np.array([frame_data[0] for _, frame_data in sorted_frames], dtype=np.float32)
-            data = data.reshape(-1, 1, 25, 3)  # (T, M, V, C), M=1 для одного человека
+            data = data.reshape(-1, 1, 25, 2)  # (T, M, V, C), M=1 для одного человека
         elif isinstance(data, list) and len(data) > 0 and hasattr(data[0], '__class__') and data[0].__class__.__name__ == 'Pose':
             # Если список объектов Pose (последовательность поз одного человека)
             from models.pose_format import JOINTS
@@ -630,12 +692,12 @@ class LSTMSkeletonNet(nn.Module):
                 if frame_idx not in frames:
                     frames[frame_idx] = {}
 
-                keypoints_3d = []
+                keypoints_2d = []
                 for joint_idx in range(25):
                     kpt = pose.keypoints[joint_idx]
-                    keypoints_3d.append([kpt[0], kpt[1], 0.0])
+                    keypoints_2d.append([kpt[0], kpt[1]])
 
-                frames[frame_idx][person_id] = keypoints_3d
+                frames[frame_idx][person_id] = keypoints_2d
 
             # Преобразуем в массив (T, M, V, C)
             sorted_frames = sorted(frames.items())
@@ -644,7 +706,7 @@ class LSTMSkeletonNet(nn.Module):
             for _, frame_data in sorted_frames:
                 frame_joints = [frame_data[i] for i in sorted(frame_data.keys())]
                 while len(frame_joints) < max_persons:
-                    frame_joints.append([[0,0,0]] * 25)
+                    frame_joints.append([[0,0]] * 25)
                 sequence.append(frame_joints[:self.bodies])
 
             data = np.array(sequence, dtype=np.float32)
@@ -659,15 +721,16 @@ class LSTMSkeletonNet(nn.Module):
         data = normalize_skeleton(data)
         data = interpolate_frames(data, target=60 * DECIMATION)
         # Прореживаем данные
-        #data = data[::DECIMATION]
-        #data = data.mean(axis=1)  # Усредняем по телам
-        data = data[:,:self.bodies,...]
+        data = data[::DECIMATION]  # Прореживаем до 60 кадров
+        data = data[:, :self.bodies, ...]
+
         if data.shape[1] < self.bodies:
             body_to_duplicate = data[:, 0:1, :, :]
             num_to_duplicate = self.bodies - data.shape[1]
             duplicates = np.tile(body_to_duplicate, (1, num_to_duplicate, 1, 1))
             data = np.concatenate([data, duplicates], axis=1)
-
+        # Транспонируем: (T, M, V, C) -> (T, M, C, V)
+        data = data.transpose(0, 1, 3, 2)
         tensor = torch.FloatTensor(data).unsqueeze(0)  # Добавляем batch dimension
 
 
