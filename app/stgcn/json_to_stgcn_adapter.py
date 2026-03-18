@@ -161,6 +161,9 @@ def recognize_action_from_video(
     output_dir: str = "outputs",
     device: str = "cpu",
     k: int = 5,
+    stgcn_weights_path: str = "models/st_gcn.kinetics.pt",
+    label_map_path: str | None = "app/stgcn/kinetics400-id2label.txt",
+    num_class: int | None = None,
 ):
     """
     Высокоуровневая функция:
@@ -195,10 +198,16 @@ def recognize_action_from_video(
     )
 
     # 4. ST‑GCN предобученный
-    model = STGCNWrapper(
-        weights_path="models/st_gcn.kinetics.pt",
-        label_map_path="app/stgcn/kinetics400-id2label.txt",
+    stgcn_kwargs = dict(
+        weights_path=stgcn_weights_path,
+        label_map_path=label_map_path,
         device=device,
+    )
+    if num_class is not None:
+        stgcn_kwargs["num_class"] = num_class
+
+    model = STGCNWrapper(
+        **stgcn_kwargs,
     )
 
     topk = model.predict_topk(data_numpy, k=k)
