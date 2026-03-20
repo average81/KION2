@@ -6,406 +6,406 @@ from models.action_format import *
 
 #Сопоставление индексов модели индексам объекта Action
 STGN_ACTIONS_MAPPING = {
-    0: 61,
-    1: 163,
-    2: 63,
-    3: 9,
-    4: 65,
-    5: 66,
-    6: 67,
-    7: 68,
-    8: 69,
-    9: 70,
-    10: 71,
-    11: 72,
-    12: 73,
-    13: 74,
-    14: 75,
-    15: 76,
-    16: 77,
-    17: 78,
-    18: 79,
-    19: 45,
-    20: 81,
-    21: 82,
-    22: 83,
-    23: 84,
-    24: 85,
-    25: 86,
-    26: 87,
-    27: 88,
-    28: 89,
-    29: 90,
-    30: 91,
-    31: 92,
-    32: 93,
-    33: 94,
-    34: 95,
-    35: 96,
-    36: 3,
-    37: 2,
-    38: 97,
-    39: 98,
-    40: 99,
-    41: 100,
-    42: 101,
-    43: 102,
-    44: 103,
-    45: 104,
-    46: 105,
-    47: 106,
-    48: 107,
-    49: 108,
-    50: 109,
-    51: 110,
-    52: 111,
-    53: 112,
-    54: 113,
-    55: 114,
-    56: 115,
-    57: 9,
-    58: 116,
-    59: 117,
-    60: 118,
-    61: 119,
-    62: 120,
-    63: 121,
-    64: 122,
-    65: 123,
-    66: 124,
-    67: 125,
-    68: 126,
-    69: 127,
-    70: 128,
-    71: 129,
-    72: 130,
-    73: 131,
-    74: 132,
-    75: 133,
-    76: 134,
-    77: 135,
-    78: 136,
-    79: 137,
-    80: 138,
-    81: 139,
-    82: 140,
-    83: 141,
-    84: 142,
-    85: 143,
-    86: 144,
-    87: 145,
-    88: 146,
-    89: 147,
-    90: 148,
-    91: 149,
-    92: 150,
-    93: 151,
-    94: 152,
-    95: 153,
-    96: 154,
-    97: 155,
-    98: 156,
-    99: 157,
-    100: 0,
-    101: 158,
-    102: 159,
-    103: 160,
-    104: 161,
-    105: 162,
-    106: 163,
-    107: 164,
-    108: 165,
-    109: 166,
-    110: 167,
-    111: 168,
-    112: 169,
-    113: 170,
-    114: 171,
-    115: 172,
-    116: 173,
-    117: 174,
-    118: 175,
-    119: 176,
-    120: 177,
-    121: 178,
-    122: 179,
-    123: 180,
-    124: 181,
-    125: 182,
-    126: 183,
-    127: 184,
-    128: 185,
-    129: 186,
-    130: 187,
-    131: 188,
-    132: 189,
-    133: 190,
-    134: 191,
-    135: 192,
-    136: 193,
-    137: 194,
-    138: 195,
-    139: 196,
-    140: 197,
-    141: 198,
-    142: 199,
-    143: 200,
-    144: 201,
-    145: 202,
-    146: 203,
-    147: 204,
-    148: 205,
-    149: 206,
-    150: 207,
-    151: 208,
-    152: 209,
-    153: 210,
-    154: 211,
-    155: 212,
-    156: 213,
-    157: 214,
-    158: 215,
-    159: 216,
-    160: 217,
-    161: 218,
-    162: 219,
-    163: 220,
-    164: 221,
-    165: 222,
-    166: 223,
-    167: 224,
-    168: 225,
-    169: 226,
-    170: 227,
-    171: 228,
-    172: 229,
-    173: 230,
-    174: 231,
-    175: 232,
-    176: 233,
-    177: 234,
-    178: 235,
-    179: 236,
-    180: 237,
-    181: 238,
-    182: 239,
-    183: 39,
-    184: 240,
-    185: 241,
-    186: 242,
-    187: 243,
-    188: 244,
-    189: 245,
-    190: 246,
-    191: 247,
-    192: 248,
-    193: 249,
-    194: 250,
-    195: 251,
-    196: 252,
-    197: 253,
-    198: 254,
-    199: 255,
-    200: 256,
-    201: 257,
-    202: 258,
-    203: 259,
-    204: 260,
-    205: 261,
-    206: 262,
-    207: 263,
-    208: 264,
-    209: 265,
-    210: 266,
-    211: 267,
-    212: 268,
-    213: 269,
-    214: 270,
-    215: 271,
-    216: 272,
-    217: 273,
-    218: 274,
-    219: 275,
-    220: 276,
-    221: 277,
-    222: 278,
-    223: 279,
-    224: 280,
-    225: 281,
-    226: 282,
-    227: 283,
-    228: 284,
-    229: 285,
-    230: 286,
-    231: 287,
-    232: 288,
-    233: 289,
-    234: 290,
-    235: 291,
-    236: 292,
-    237: 293,
-    238: 294,
-    239: 295,
-    240: 296,
-    241: 297,
-    242: 298,
-    243: 299,
-    244: 300,
-    245: 301,
-    246: 302,
-    247: 303,
-    248: 304,
-    249: 305,
-    250: 306,
-    251: 307,
-    252: 308,
-    253: 309,
-    254: 310,
-    255: 311,
-    256: 312,
-    257: 313,
-    258: 314,
-    259: 315,
-    260: 316,
-    261: 317,
-    262: 318,
-    263: 319,
-    264: 320,
-    265: 321,
-    266: 322,
-    267: 323,
-    268: 324,
-    269: 325,
-    270: 326,
-    271: 327,
-    272: 328,
-    273: 329,
-    274: 330,
-    275: 331,
-    276: 332,
-    277: 333,
-    278: 334,
-    279: 335,
-    280: 336,
-    281: 337,
-    282: 338,
-    283: 339,
-    284: 340,
-    285: 341,
-    286: 342,
-    287: 343,
-    288: 344,
-    289: 345,
-    290: 346,
-    291: 347,
-    292: 348,
-    293: 349,
-    294: 350,
-    295: 351,
-    296: 352,
-    297: 353,
-    298: 354,
-    299: 355,
-    300: 356,
-    301: 357,
-    302: 56,
-    303: 358,
-    304: 359,
-    305: 360,
-    306: 361,
-    307: 362,
-    308: 363,
-    309: 364,
-    310: 365,
-    311: 52,
-    312: 366,
-    313: 367,
-    314: 368,
-    315: 369,
-    316: 370,
-    317: 371,
-    318: 372,
-    319: 373,
-    320: 374,
-    321: 375,
-    322: 376,
-    323: 377,
-    324: 378,
-    325: 379,
-    326: 380,
-    327: 381,
-    328: 382,
-    329: 383,
-    330: 40,
-    331: 384,
-    332: 385,
-    333: 386,
-    334: 387,
-    335: 388,
-    336: 389,
-    337: 390,
-    338: 391,
-    339: 392,
-    340: 393,
-    341: 394,
-    342: 395,
-    343: 396,
-    344: 397,
-    345: 398,
-    346: 399,
-    347: 400,
-    348: 401,
-    349: 402,
-    350: 403,
-    351: 404,
-    352: 405,
-    353: 406,
-    354: 407,
-    355: 408,
-    356: 409,
-    357: 410,
-    358: 411,
-    359: 412,
-    360: 413,
-    361: 414,
-    362: 415,
-    363: 416,
-    364: 417,
-    365: 418,
-    366: 419,
-    367: 420,
-    368: 421,
-    369: 422,
-    370: 423,
-    371: 424,
-    372: 425,
-    373: 426,
-    374: 427,
-    375: 428,
-    376: 429,
-    377: 430,
-    378: 431,
-    379: 432,
-    380: 433,
-    381: 434,
-    382: 435,
-    383: 436,
-    384: 437,
-    385: 438,
-    386: 439,
-    387: 440,
-    388: 441,
-    389: 442,
-    390: 443,
-    391: 444,
-    392: 445,
-    393: 446,
-    394: 447,
-    395: 448,
-    396: 1,
-    397: 11,
-    398: 399,
-    399: 448
+    0: 61,   # abseiling
+    1: 163,  # air drumming
+    2: 63,   # answering questions
+    3: 9,    # applauding
+    4: 65,   # applying cream
+    5: 66,   # archery
+    6: 67,   # arm wrestling
+    7: 68,   # arranging flowers
+    8: 69,   # assembling computer
+    9: 70,   # auctioning
+    10: 71,  # baby waking up
+    11: 72,  # baking cookies
+    12: 73,  # balloon blowing
+    13: 74,  # bandaging
+    14: 75,  # barbequing
+    15: 76,  # bartending
+    16: 77,  # beatboxing
+    17: 78,  # bee keeping
+    18: 79,  # belly dancing
+    19: 80,  # bench pressing → исправлено: было 45, теперь 80
+    20: 81,  # bending back
+    21: 82,  # bending metal
+    22: 83,  # biking through snow
+    23: 84,  # blasting sand
+    24: 85,  # blowing glass
+    25: 86,  # blowing leaves
+    26: 87,  # blowing nose
+    27: 88,  # blowing out candles
+    28: 89,  # bobsledding
+    29: 90,  # bookbinding
+    30: 91,  # bouncing on trampoline
+    31: 92,  # bowling
+    32: 93,  # braiding hair
+    33: 94,  # breading or breadcrumbing
+    34: 95,  # breakdancing
+    35: 96,  # brush painting
+    36: 3,   # brushing hair
+    37: 2,   # brushing teeth
+    38: 97,  # building cabinet
+    39: 98,  # building shed
+    40: 99,  # bungee jumping
+    41: 100, # busking
+    42: 101, # canoeing or kayaking
+    43: 102, # capoeira
+    44: 103, # carrying baby
+    45: 104, # cartwheeling
+    46: 105, # carving pumpkin
+    47: 106, # catching fish
+    48: 107, # catching or throwing baseball
+    49: 108, # catching or throwing frisbee
+    50: 109, # catching or throwing softball
+    51: 110, # celebrating
+    52: 111, # changing oil
+    53: 112, # changing wheel
+    54: 113, # checking tires
+    55: 114, # cheerleading
+    56: 115, # chopping wood
+    57: 9,   # clapping → уже есть в ACTIONS как 9
+    58: 116, # clay pottery making
+    59: 117, # clean and jerk
+    60: 118, # cleaning floor
+    61: 119, # cleaning gutters
+    62: 120, # cleaning pool
+    63: 121, # cleaning shoes
+    64: 122, # cleaning toilet
+    65: 123, # cleaning windows
+    66: 124, # climbing a rope
+    67: 125, # climbing ladder
+    68: 126, # climbing tree
+    69: 127, # contact juggling
+    70: 128, # cooking chicken
+    71: 129, # cooking egg
+    72: 130, # cooking on campfire
+    73: 131, # cooking sausages
+    74: 132, # counting money
+    75: 133, # country line dancing
+    76: 134, # cracking neck
+    77: 135, # crawling baby
+    78: 136, # crossing river
+    79: 137, # crying
+    80: 138, # curling hair
+    81: 139, # cutting nails
+    82: 140, # cutting pineapple
+    83: 141, # cutting watermelon
+    84: 142, # dancing ballet
+    85: 143, # dancing charleston
+    86: 144, # dancing gangnam style
+    87: 145, # dancing macarena
+    88: 146, # deadlifting → ранее было 46, теперь 146
+    89: 147, # decorating the christmas tree
+    90: 148, # digging
+    91: 149, # dining
+    92: 150, # disc golfing
+    93: 151, # diving cliff
+    94: 152, # dodgeball
+    95: 153, # doing aerobics
+    96: 154, # doing laundry
+    97: 155, # doing nails
+    98: 156, # drawing
+    99: 157, # dribbling basketball
+    100: 0,  # drinking → соответствует 'drink water'
+    101: 158, # drinking beer
+    102: 159, # drinking shots
+    103: 160, # driving car
+    104: 161, # driving tractor
+    105: 162, # drop kicking
+    106: 163, # drumming fingers
+    107: 164, # dunking basketball
+    108: 165, # dying hair
+    109: 166, # eating burger
+    110: 167, # eating cake
+    111: 168, # eating carrots
+    112: 169, # eating chips
+    113: 170, # eating doughnuts
+    114: 171, # eating hotdog
+    115: 172, # eating ice cream
+    116: 173, # eating spaghetti
+    117: 174, # eating watermelon
+    118: 175, # egg hunting
+    119: 176, # exercising arm
+    120: 177, # exercising with an exercise ball
+    121: 178, # extinguishing fire
+    122: 179, # faceplanting
+    123: 180, # feeding birds
+    124: 181, # feeding fish
+    125: 182, # feeding goats
+    126: 183, # filling eyebrows
+    127: 184, # finger snapping
+    128: 185, # fixing hair
+    129: 186, # flipping pancake
+    130: 187, # flying kite
+    131: 188, # folding clothes
+    132: 189, # folding napkins
+    133: 190, # folding paper
+    134: 191, # front raises
+    135: 192, # frying vegetables
+    136: 193, # garbage collecting
+    137: 194, # gargling
+    138: 195, # getting a haircut
+    139: 196, # getting a tattoo
+    140: 197, # giving or receiving award
+    141: 198, # golf chipping
+    142: 199, # golf driving
+    143: 200, # golf putting
+    144: 201, # grinding meat
+    145: 202, # grooming dog
+    146: 203, # grooming horse
+    147: 204, # gymnastics tumbling
+    148: 205, # hammer throw
+    149: 206, # headbanging
+    150: 207, # headbutting
+    151: 208, # high jump
+    152: 209, # high kick
+    153: 210, # hitting baseball
+    154: 211, # hockey stop
+    155: 212, # holding snake
+    156: 213, # hopscotch
+    157: 214, # hoverboarding
+    158: 215, # hugging
+    159: 216, # hula hooping
+    160: 217, # hurdling
+    161: 218, # hurling (sport)
+    162: 219, # ice climbing
+    163: 220, # ice fishing
+    164: 221, # ice skating
+    165: 222, # ironing
+    166: 223, # javelin throw
+    167: 224, # jetskiing
+    168: 225, # jogging
+    169: 226, # juggling balls
+    170: 227, # juggling fire
+    171: 228, # juggling soccer ball
+    172: 229, # jumping into pool
+    173: 230, # jumpstyle dancing
+    174: 231, # kicking field goal
+    175: 232, # kicking soccer ball
+    176: 233, # kissing
+    177: 234, # kitesurfing
+    178: 235, # knitting
+    179: 236, # krumping
+    180: 237, # laughing
+    181: 238, # laying bricks
+    182: 239, # long jump
+    183: 39,  # lunge → было 39
+    184: 240, # making a cake
+    185: 241, # making a sandwich
+    186: 242, # making bed
+    187: 243, # making jewelry
+    188: 244, # making pizza
+    189: 245, # making snowman
+    190: 246, # making sushi
+    191: 247, # making tea
+    192: 248, # marching
+    193: 249, # massaging back
+    194: 250, # massaging feet
+    195: 251, # massaging legs
+    196: 252, # massaging person's head
+    197: 253, # milking cow
+    198: 254, # mopping floor
+    199: 255, # motorcycling
+    200: 255, # moving furniture
+    201: 256, # mowing lawn
+    202: 257, # news anchoring
+    203: 258, # opening bottle
+    204: 259, # opening present
+    205: 260, # paragliding
+    206: 261, # parasailing
+    207: 262, # parkour
+    208: 263, # passing American football (in game)
+    209: 264, # passing American football (not in game)
+    210: 265, # peeling apples
+    211: 266, # peeling potatoes
+    212: 267, # petting animal (not cat)
+    213: 268, # petting cat
+    214: 269, # picking fruit
+    215: 270, # planting trees
+    216: 271, # plastering
+    217: 272, # playing accordion
+    218: 273, # playing badminton
+    219: 274, # playing bagpipes
+    220: 275, # playing basketball
+    221: 285, # playing bass guitar
+    222: 275, # playing cards
+    223: 276, # playing cello
+    224: 277, # playing chess
+    225: 278, # playing clarinet
+    226: 279, # playing controller
+    227: 280, # playing cricket
+    228: 281, # playing cymbals
+    229: 282, # playing didgeridoo
+    230: 283, # playing drums
+    231: 284, # playing flute
+    232: 285, # playing guitar
+    233: 286, # playing harmonica
+    234: 287, # playing harp
+    235: 288, # playing ice hockey
+    236: 289, # playing keyboard
+    237: 290, # playing kickball
+    238: 291, # playing monopoly
+    239: 292, # playing organ
+    240: 293, # playing paintball
+    241: 294, # playing piano
+    242: 295, # playing poker
+    243: 296, # playing recorder
+    244: 297, # playing saxophone
+    245: 298, # playing squash or racquetball
+    246: 299, # playing tennis
+    247: 300, # playing trombone
+    248: 301, # playing trumpet
+    249: 302, # playing ukulele
+    250: 303, # playing violin
+    251: 304, # playing volleyball
+    252: 305, # playing xylophone
+    253: 306, # pole vault
+    254: 307, # presenting weather forecast
+    255: 308, # pull ups
+    256: 309, # pumping fist
+    257: 310, # pumping gas
+    258: 311, # punching bag
+    259: 312, # punching person (boxing)
+    260: 313, # push up
+    261: 314, # pushing car
+    262: 315, # pushing cart
+    263: 316, # pushing wheelchair
+    264: 317, # reading book
+    265: 318, # reading newspaper
+    266: 319, # recording music
+    267: 320, # riding a bike
+    268: 321, # riding camel
+    269: 322, # riding elephant
+    270: 323, # riding mechanical bull
+    271: 324, # riding mountain bike
+    272: 325, # riding mule
+    273: 326, # riding or walking with horse
+    274: 327, # riding scooter
+    275: 328, # riding unicycle
+    276: 329, # ripping paper
+    277: 330, # robot dancing
+    278: 331, # rock climbing
+    279: 332, # rock scissors paper
+    280: 333, # roller skating
+    281: 334, # running on treadmill
+    282: 335, # sailing
+    283: 336, # salsa dancing
+    284: 337, # sanding floor
+    285: 338, # scrambling eggs
+    286: 339, # scuba diving
+    287: 340, # setting table
+    288: 341, # shaking hands
+    289: 342, # shaking head
+    290: 343, # sharpening knives
+    291: 344, # sharpening pencil
+    292: 345, # shaving head
+    293: 346, # shaving legs
+    294: 347, # shearing sheep
+    295: 348, # shining shoes
+    296: 349, # shooting basketball
+    297: 350, # shooting goal (soccer)
+    298: 351, # shot put
+    299: 352, # shoveling snow
+    300: 353, # shredding paper
+    301: 354, # shuffling cards
+    302: 56,  # side kick
+    303: 355, # sign language interpreting
+    304: 356, # singing
+    305: 357, # situp
+    306: 358, # skateboarding
+    307: 359, # ski jumping
+    308: 360, # skiing (not slalom or crosscountry)
+    309: 361, # skiing crosscountry
+    310: 362, # skiing slalom
+    311: 363, # skipping rope
+    312: 364, # skydiving
+    313: 365, # slacklining
+    314: 366, # slapping
+    315: 367, # sled dog racing
+    316: 368, # smoking
+    317: 369, # smoking hookah
+    318: 370, # snatch weight lifting
+    319: 371, # sneezing
+    320: 372, # sniffing
+    321: 373, # snorkeling
+    322: 374, # snowboarding
+    323: 375, # snowkiting
+    324: 376, # snowmobiling
+    325: 377, # somersaulting
+    326: 378, # spinning poi
+    327: 379, # spray painting
+    328: 380, # spraying
+    329: 381, # springboard diving
+    330: 40,  # squat
+    331: 382, # sticking tongue out
+    332: 383, # stomping grapes
+    333: 19,  # stretching arm → ранее было 40, теперь 19
+    334: 384, # stretching leg → ранее 384
+    335: 385, # strumming guitar
+    336: 19,  # surfing crowd
+    337: 387, # surfing water
+    338: 388, # sweeping floor
+    339: 389, # swimming backstroke
+    340: 390, # swimming breast stroke
+    341: 391, # swimming butterfly stroke
+    342: 392, # swing dancing
+    343: 393, # swinging legs
+    344: 394, # swinging on something
+    345: 395, # sword fighting
+    346: 396, # tai chi
+    347: 397, # taking a shower
+    348: 398, # tango dancing
+    349: 399, # tap dancing
+    350: 400, # tapping guitar
+    351: 401, # tapping pen
+    352: 402, # tasting beer
+    353: 403, # tasting food
+    354: 404, # testifying
+    355: 405, # texting
+    356: 406, # throwing axe
+    357: 407, # throwing ball
+    358: 408, # throwing discus
+    359: 409, # tickling
+    360: 410, # tobogganing
+    361: 411, # tossing coin
+    362: 412, # tossing salad
+    363: 413, # training dog
+    364: 414, # trapezing
+    365: 415, # trimming or shaving beard
+    366: 416, # trimming trees
+    367: 417, # triple jump
+    368: 418, # tying bow tie
+    369: 419, # tying knot (not on a tie)
+    370: 420, # tying tie
+    371: 421, # unboxing
+    372: 422, # unloading truck
+    373: 423, # using computer
+    374: 424, # using remote controller (not gaming)
+    375: 425, # using segway
+    376: 426, # vault
+    377: 427, # waiting in line
+    378: 428, # walking the dog
+    379: 429, # washing dishes
+    380: 430, # washing feet
+    381: 431, # washing hair
+    382: 432, # washing hands
+    383: 433, # water skiing
+    384: 434, # water sliding
+    385: 435, # watering plants
+    386: 436, # waxing back
+    387: 437, # waxing chest
+    388: 438, # waxing eyebrows
+    389: 439, # waxing legs
+    390: 440, # weaving basket
+    391: 441, # welding
+    392: 442, # whistling
+    393: 443, # windsurfing
+    394: 444, # wrapping present
+    395: 445, # wrestling
+    396: 446, # writing
+    397: 447, # yawning
+    398: 448, # yoga
+    399: 1, # zumba
 }
 class STGCN_model:
     """
@@ -422,13 +422,12 @@ class STGCN_model:
             model_params (dict): Параметры модели, включая:
                 - weights: путь к файлу с весами (.pt)
                 - label_map_path: путь к карте меток (опционально)
-                - device: устройство ('cpu' или 'cuda')
             threshold (float): Порог уверенности для принятия предсказания.
         """
         self.threshold = threshold
         weights_path = model_params.get("weights")
         label_map_path = model_params.get("label_map_path", None)
-        device = model_params.get("device", "cpu")
+        self.actions_mapping = STGN_ACTIONS_MAPPING
 
         if not weights_path:
             raise ValueError("Параметр 'weights' обязателен в model_params")
@@ -457,15 +456,12 @@ class STGCN_model:
 
         # Преобразуем poses в тензор data_numpy формы (1, 3, T, V, M)
         data_numpy = self._poses_to_numpy(poses)
-        #print(data_numpy)
         with torch.no_grad():
             logits = self.model.predict_logits(data_numpy)  # (1, 400)
             probabilities = torch.softmax(logits, dim=1)[0].cpu().numpy()
             conf_idx = torch.argmax(logits, dim=1).item()
             confidence = probabilities[conf_idx].item()
-        #print(confidence)
         # Получаем название действия
-        action_name = "unknown"
         if self.model.id2label is not None:
             action_name = self.model.id2label.get(str(conf_idx), f"action_{conf_idx}")
         else:
@@ -475,7 +471,14 @@ class STGCN_model:
             action.action_id =int(STGN_ACTIONS_MAPPING[conf_idx])
             action.action_name =action_name
             action.conf =confidence
-        return action
+
+        raw_res = {
+            'logits': logits,
+            'probabilities': probabilities,
+            'predicted_class': conf_idx,
+            'confidence': confidence
+        }
+        return action,raw_res
 
 
     def _poses_to_numpy(self, poses: List[Dict]) -> np.ndarray:

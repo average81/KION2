@@ -54,13 +54,13 @@ class PoseActionClassificator:
     #Определение одного действия
     def classify_one(self, poses):
         self.logger.info(f"Classifying {len(poses)} poses.")
-        action = self.model.predict(poses)
+        action,raw = self.model.predict(poses)
 
         return  {
                 "frame_idx": poses[0].frame_idx,
                 "person_id": poses[0].id,
                 "action": action.to_dict()
-                }
+                }, raw
     # Определение всех действий
     def classify(self,poses):
         # Создаем словарь для группировки поз по id
@@ -86,12 +86,13 @@ class PoseActionClassificator:
 
         # Классифицируем действия для каждой группы поз (индивидуальные действия)
         results = []
+        raw_res = []
         for batch in pose_batches:
             # Берем последовательность длиной action_period
             for i in range(len(batch) // self.action_period + 1):
                 sequence = batch[i*self.action_period:(i+1)*self.action_period ]
-                result = self.classify_one(sequence)
+                result,raw = self.classify_one(sequence)
                 results.append(result)
-
-        return results
+                raw_res.append(raw)
+        return results,raw_res
 

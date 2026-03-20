@@ -241,6 +241,17 @@ class LSTMSkeletonNet(nn.Module):
             nn.MaxPool2d(kernel_size=(2, 1), stride=(2, 1))
         )
 
+        self.conv4 = nn.Sequential(
+            nn.Conv2d(
+                in_channels=128,  # C (x,y координаты)
+                out_channels=128,
+                kernel_size=(1, 9),  # (временные окна, пространственные соседи)
+                padding=(1, 4)
+            ),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+        )
+
         # Финальная обработка и классификация
         self.fusion_conv = nn.Sequential(
             nn.Conv2d(
@@ -288,6 +299,7 @@ class LSTMSkeletonNet(nn.Module):
         x = self.conv1(x)  # (N, 128, T, V)
         x = self.conv2(x)  # (N, 128, T, V)
         x = self.conv3(x)  # (N, 128, T, V)
+        x = self.conv4(x)  # (N, 128, T, V)
 
         #x = x.view(N,M, 128, T//4, V)
         #x = x.permute(0, 2, 3, 1, 4).contiguous()  # (N, 64, T, M, V)
@@ -680,9 +692,8 @@ class LSTMSkeletonNet(nn.Module):
             output = self(tensor)
             probabilities = torch.softmax(output, dim=1)
             confidence, predicted = torch.max(probabilities, dim=1)
-
         return {
-            'logits': output.cpu().numpy()[0],
+            'logits': output,
             'probabilities': probabilities.cpu().numpy()[0],
             'predicted_class': predicted.item(),
             'confidence': confidence.item()
@@ -701,3 +712,20 @@ class LSTMSkeletonNet(nn.Module):
         except Exception as e:
             print(f"❌ Ошибка при загрузке весов: {e}")
             raise
+
+    @torch.no_grad()
+    def predict_topk(self, data, k=5):
+        """
+        Возвращает список top-k (cls_id, prob, label_str)
+        """
+        logits = self.predict(data)['logits']  # (1,num_class)
+        prob = torch.softmax(logits, dim=1)[0]
+        topk = torch.topk(prob, k=k)
+
+        results = []
+        for cls_id, p in zip(topk.indices.tolist(), topk.values.tolist()):
+            label = None
+            if self.id2label is not None:
+                label = self.id2label.get(str(cls_id), None)
+            results.append((cls_id, float(p), label))
+        return results

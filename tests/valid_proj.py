@@ -7,6 +7,7 @@ from pathlib import Path
 from sklearn.metrics import classification_report, precision_recall_fscore_support
 from app.video_processor import VideoProcessor
 import utils.utils as utils
+from models.action_format import ACTIONS
 
 
 def extract_label_from_filename(filename):
@@ -38,7 +39,6 @@ def calculate_metrics(y_true, y_pred, classes):
 
     # Получаем уникальные метки из y_true (и сортируем для согласованности)
     unique_labels = np.unique(y_true)
-
     # Ограничиваем target_names только теми классами, которые присутствуют
     filtered_target_names = [classes[i] for i in unique_labels]
 
@@ -115,26 +115,7 @@ def main(video_folder, config_path, output_json='validation_results.json'):
         config_path=config_path
     )
     
-    # Список классов (предполагаем, что их 60)
-    classes = [
-        "drink water", "eat meal/snack", "brushing teeth", "brushing hair", "drop",
-        "pickup", "throw", "sitting down", "standing up (from sitting position)", "clapping",
-        "reading", "writing", "tear up paper", "wear jacket", "take off jacket",
-        "wear a shoe", "take off a shoe", "wear on glasses", "take off glasses",
-        "put on a hat/cap", "take off a hat/cap", "cheer up", "hand waving",
-        "kicking something", "reach into pocket", "hopping (one foot jumping)", "jump up",
-        "make a phone call/answer phone", "playing with phone/tablet", "typing on a keyboard",
-        "pointing to something with finger", "taking a selfie", "check time (from watch)",
-        "rub two hands together", "nod head/bow", "shake head", "wipe face",
-        "salute", "put the palms together", "cross hands in front (say stop)", "sneeze/cough",
-        "staggering", "falling", "touch head (headache)", "touch chest (stomachache/heart pain)",
-        "touch back (backache)", "touch neck (neckache)", "nausea or vomiting condition",
-        "use a fan (with hand or paper)/feeling warm", "punching/slapping other person",
-        "kicking other person", "pushing other person", "pat on back of other person",
-        "point finger at the other person", "hugging other person", "giving something to other person",
-        "touch other person's pocket", "handshaking", "walking towards each other",
-        "walking apart from each other"
-    ]
+
     
     # Сбор предсказаний и истинных меток
     y_true = []
@@ -154,7 +135,7 @@ def main(video_folder, config_path, output_json='validation_results.json'):
             # Обработка видео
             logger.info(f"Processing {video_file}...")
             processor.input_file = video_path
-            results = processor.process()
+            results,_ = processor.process()
             
             # Проверка результатов
             if results['pose_actions'] is None:
@@ -173,7 +154,7 @@ def main(video_folder, config_path, output_json='validation_results.json'):
             if not valid_predictions:
                 logger.warning(f"No valid predictions (duration >= {min_duration}) for {video_file}")
                 continue
-            print(valid_predictions)
+
             # Берем предсказание с максимальной уверенностью среди валидных
             best_prediction = max(valid_predictions, key=lambda x: x['action'].get('conf', 0))
             pred_label = best_prediction['action']['action_id']
@@ -195,7 +176,7 @@ def main(video_folder, config_path, output_json='validation_results.json'):
     logger.info(f"\nProcessed {processed_videos} out of {len(video_files)} videos")
     
     if y_true:
-        metrics = calculate_metrics(y_true, y_pred, classes)
+        metrics = calculate_metrics(y_true, y_pred, list(ACTIONS.values()))
         
         # Вывод на экран
         print("\n" + "="*50)
@@ -207,7 +188,7 @@ def main(video_folder, config_path, output_json='validation_results.json'):
         print(f"Macro Avg Recall: {metrics['macro_avg_recall']:.4f}")
         print(f"Macro Avg F1-Score: {metrics['macro_avg_f1']:.4f}")
         print("\nClassification Report:")
-        for class_name, class_idx in zip(classes, range(len(classes))):
+        for class_name, class_idx in zip(ACTIONS.values(), range(len(ACTIONS.values()))):
             if str(class_idx) in metrics['classification_report']:
                 cls_metrics = metrics['classification_report'][str(class_idx)]
                 print(f"{class_name:40s} (#{class_idx:2d}): "

@@ -58,7 +58,8 @@ def main() -> None:
     # 2. Предобученная ST-GCN на Kinetics
     model = STGCNWrapper(
         weights_path="models/st_gcn.kinetics.pt",
-        label_map_path="models/stgcn/kinetics400-id2label.txt"
+        label_map_path="app/stgcn/kinetics400-id2label.txt",
+        device="cpu",
     )
 
     # 3. Получаем Top‑5 предсказаний

@@ -8,7 +8,9 @@ class STGCNWrapper:
     def __init__(
         self,
         weights_path='./models/st_gcn.kinetics.pt',
-        label_map_path='kinetics400-id2label.txt'
+        label_map_path='kinetics400-id2label.txt',
+        device='cpu',
+        num_class: int = 400,
     ):
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.device = torch.device(device)
@@ -16,12 +18,14 @@ class STGCNWrapper:
         # модель как в config/st_gcn/kinetics-skeleton/test.yaml
         self.model = Model(
             in_channels=3,
-            num_class=400,
+            num_class=num_class,
             edge_importance_weighting=True,
             graph_args={'layout': 'openpose', 'strategy': 'spatial'}
         ).to(self.device)
 
         ckpt = torch.load(weights_path, map_location=self.device)
+        if isinstance(ckpt, dict) and "state_dict" in ckpt:
+            ckpt = ckpt["state_dict"]
         self.model.load_state_dict(ckpt)
         self.model.eval()
 
@@ -35,7 +39,7 @@ class STGCNWrapper:
     def predict_logits(self, data_numpy):
         """
         data_numpy: np.ndarray формы (1, 3, T, V, M), V=18, M=1
-        возвращает torch.Tensor формы (1, 400)
+        возвращает torch.Tensor формы (1, num_class)
         """
         data_tensor = torch.from_numpy(data_numpy).float().to(self.device)
         out = self.model(data_tensor)
@@ -46,7 +50,7 @@ class STGCNWrapper:
         """
         Возвращает список top-k (cls_id, prob, label_str)
         """
-        logits = self.predict_logits(data_numpy)  # (1,400)
+        logits = self.predict_logits(data_numpy)  # (1,num_class)
         prob = torch.softmax(logits, dim=1)[0]
         topk = torch.topk(prob, k=k)
 

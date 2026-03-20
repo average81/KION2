@@ -21,4 +21,4 @@ class LSTM_model:
             action.action_id =result['predicted_class']
             action.action_name =ACTIONS[result['predicted_class']]
             action.conf =result['confidence']
-        return action
+        return action,result

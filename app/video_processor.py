@@ -112,7 +112,7 @@ class VideoProcessor:
 
             # 2. Классификация действий по позам (если есть классификатор)
             if hasattr(self, "pose_action_classifier") and self.pose_action_classifier is not None:
-                pose_actions = self.pose_action_classifier.classify(poses)
+                pose_actions,raw_res = self.pose_action_classifier.classify(poses)
                 results["pose_actions"] = pose_actions
             else:
                 self.logger.info("PoseActionClassificator is None, skipping pose-based actions.")
@@ -127,4 +127,4 @@ class VideoProcessor:
             self.logger.info("MultimodalActionClassificator is None, skipping multimodal actions.")
         self.logger.info("Video processing finished.")
         
-        return results
+        return results,raw_res

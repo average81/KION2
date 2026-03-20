@@ -19,7 +19,7 @@ if str(ROOT) not in sys.path:
 
 import argparse
 
-from app.stgcn.json_to_stgcn_adapter import recognize_action_from_video
+from models.stgcn.json_to_stgcn_adapter import recognize_action_from_video
 
 
 def main():
@@ -50,6 +50,27 @@ def main():
         help="Устройство для ST-GCN (cpu или cuda:0).",
     )
     parser.add_argument(
+        "--stgcn_weights",
+        type=str,
+        default="models/st_gcn.kinetics.pt",
+        help="Путь к весам ST-GCN (.pt/.pth).",
+    )
+    parser.add_argument(
+        "--label_map",
+        type=str,
+        default="app/stgcn/kinetics400-id2label.txt",
+        help="Путь к json map id->label. Чтобы отключить, укажи 'none'.",
+    )
+    parser.add_argument(
+        "--num_class",
+        type=int,
+        default=None,
+        help=(
+            "Число классов для ST-GCN. Если не указано — используется дефолт модели (сейчас 400). "
+            "Для NTU-весов обычно нужно: --num_class 60."
+        ),
+    )
+    parser.add_argument(
         "-k",
         type=int,
         default=5,
@@ -67,6 +88,9 @@ def main():
         output_dir=args.output_dir,
         device=args.device,
         k=args.k,
+        stgcn_weights_path=args.stgcn_weights,
+        label_map_path=None if str(args.label_map).lower() == "none" else args.label_map,
+        num_class=args.num_class,
     )
 
     print("Top‑5 действий для ролика:", video_path.name)
