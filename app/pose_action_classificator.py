@@ -6,8 +6,8 @@ from models.action_format import *
 action_models = {
     "LSTMSkeletonNet": {"model":LSTM_model,"params":{"weights":"models/lstm_gcn.pth",
                                                      "num_classes": 60,'fusion':'attention',
-                                                     "hidden_size": 128, "num_layers": 3,
-                                                     "bodies":2,"dropout": 0.5}},
+                                                     "hidden_size": 256, "num_layers": 2,
+                                                     "bodies":2,"dropout": 0.4}},
     "STGCN_model": {"model":STGCN_model , "params": {"weights": "models/st_gcn.kinetics.pt",
                                                      "label_map_path": "models/stgcn/kinetics400-id2label.txt"} }
 }

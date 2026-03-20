@@ -15,7 +15,7 @@ def main():
 
     # Создаем модель
     params = action_models["LSTMSkeletonNet"]["params"]
-    model = LSTMSkeletonNet(num_classes=params['num_classes'], input_size=params["input_size"],
+    model = LSTMSkeletonNet(num_classes=params['num_classes'],
                             hidden_size=params["hidden_size"], num_layers=params["num_layers"],
                             dropout=params["dropout"], bodies=params["bodies"])
 

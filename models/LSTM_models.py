@@ -7,7 +7,7 @@ class LSTM_model:
     def __init__(self, params, threshold):
         self.weights = params["weights"]
         self.threshold = threshold
-        self.model=LSTMSkeletonNet(num_classes=params['num_classes'], input_size=params["input_size"],
+        self.model=LSTMSkeletonNet(num_classes=params['num_classes'],
                                    hidden_size=params["hidden_size"], num_layers=params["num_layers"],
                                    dropout=params["dropout"], bodies=params["bodies"]).to(DEVICE)
         self.model.load_weights(params["weights"])

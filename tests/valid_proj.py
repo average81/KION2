@@ -55,14 +55,13 @@ def calculate_metrics(y_true, y_pred, classes):
     precision, recall, f1, _ = precision_recall_fscore_support(
         y_true, y_pred, average='macro', labels=unique_labels
     )
-
     # Добавляем общие метрики
     metrics = {
         'classification_report': report,
         'macro_avg_precision': float(precision),
         'macro_avg_recall': float(recall),
         'macro_avg_f1': float(f1),
-        'accuracy': float(report['accuracy'])
+        #'accuracy': float(report['accuracy'])
     }
     return metrics
 
@@ -174,9 +173,9 @@ def main(video_folder, config_path, output_json='validation_results.json'):
             if not valid_predictions:
                 logger.warning(f"No valid predictions (duration >= {min_duration}) for {video_file}")
                 continue
-                
+            print(valid_predictions)
             # Берем предсказание с максимальной уверенностью среди валидных
-            best_prediction = max(valid_predictions, key=lambda x: x.get('confidence', 0))
+            best_prediction = max(valid_predictions, key=lambda x: x['action'].get('conf', 0))
             pred_label = best_prediction['action']['action_id']
             if pred_label == -1:
                 logger.warning(f"No predicted action in best prediction for {video_file}")
@@ -203,7 +202,7 @@ def main(video_folder, config_path, output_json='validation_results.json'):
         print("VALIDATION RESULTS")
         print("="*50)
         print(f"Processed videos: {processed_videos}/{len(video_files)}")
-        print(f"Accuracy: {metrics['accuracy']:.4f}")
+        #print(f"Accuracy: {metrics['accuracy']:.4f}")
         print(f"Macro Avg Precision: {metrics['macro_avg_precision']:.4f}")
         print(f"Macro Avg Recall: {metrics['macro_avg_recall']:.4f}")
         print(f"Macro Avg F1-Score: {metrics['macro_avg_f1']:.4f}")
