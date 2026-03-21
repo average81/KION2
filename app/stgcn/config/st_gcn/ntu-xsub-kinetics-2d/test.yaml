@@ -1,0 +1,20 @@
+# тот же work_dir, что train.yaml
+weights: ./work_dir/recognition/ntu-xsub-kinetics-2d-fromscratch/ST_GCN/epoch100_model.pt
+
+feeder: feeder.feeder.Feeder
+test_feeder_args:
+  data_path: ./data/NTU-RGB-D-2D-from-color/xsub_val_data18.npy
+  label_path: ./data/NTU-RGB-D-2D-from-color/xsub_val_label.pkl
+
+model: net.st_gcn.Model
+model_args:
+  in_channels: 3
+  num_class: 60
+  edge_importance_weighting: True
+  graph_args:
+    layout: 'openpose'
+    strategy: 'spatial'
+
+phase: test
+device: 0
+test_batch_size: 64

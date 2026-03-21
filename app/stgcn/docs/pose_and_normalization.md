@@ -2,6 +2,8 @@
 
 Справочник по формату скелетных данных, используемому в проекте для распознавания действий (ST-GCN, Kinetics-skeleton): нумерация суставов, схема нормализации координат, параметры видео и формат файлов.
 
+**NTU RGB+D:** каталог с данными на диске — **`app/stgcn/data/`** (см. раздел 5 ниже).
+
 ---
 
 ## 1. Нумерация суставов (18, OpenPose layout)
@@ -37,7 +39,7 @@
 
 ## 2. Нормализация координат (Kinetics pipeline)
 
-Источник: пайплайн yysijie ST-GCN, файл `feeder_kinetics.py` (центрация по кадру).
+Источник: описание нормализации в оригинальном Kinetics-skeleton пайплайне ST-GCN (upstream yysijie / mmskeleton; центрация по кадру). В этом репозитории обучение Kinetics идёт через `feeder.feeder.Feeder` и массивы `.npy`, отдельный исторический фидер с каталогом JSON-файлов не используется.
 
 - **Исходные координаты**: нормализованы к отрезку **[0, 1]** по ширине и высоте кадра (x — по ширине, y — по высоте).
 - **Преобразование**: только **центрация**:
@@ -80,5 +82,29 @@
 
 - Адаптер «наш JSON → тензор для ST-GCN»: `app/stgcn/json_to_stgcn_adapter.py` (нормализация как в Kinetics: width/height → [0,1] → −0.5; на выходе форма (1, 3, T, 18, 1)). Аналогично загрузка OpenPose JSON в `app/stgcn/openpose_to_stgcn_adapter.py`.
 - Валидация на .npy/.pkl: `validate_stgcn_npy_pkl.py` (Top-1/Top-5, опция `--all-persons`).
-- Просмотр статистики по координатам и визуализация кадров: `inspect_labels.py`.
+- Просмотр статистики по координатам и визуализация кадров: `tests/tools/inspect_labels.py`.
+
+---
+
+## 5. Пути к данным NTU RGB+D (этот репозиторий)
+
+**Корень данных — `app/stgcn/data/`** (не `app/stgcn/dataset/data/`). Подробнее: `app/stgcn/data/README.md`.
+
+| Этап | Путь |
+|------|------|
+| Исходные 2D color скелеты NTU | `app/stgcn/data/NTU-RGB-D/nturgb+d_skeletons/*.skeleton` |
+| Списки xsub (имена + метки), вход сборки | `app/stgcn/data/NTU-RGB-D-2D-from-color/xsub_train_label.pkl`, `xsub_val_label.pkl` |
+| Выход сборки (формат Kinetics/OpenPose-18) | `app/stgcn/data/NTU-RGB-D-2D-from-color/xsub_train_data18.npy`, `xsub_val_data18.npy`, соответствующие `*_label.pkl` |
+
+Сборка массивов: из **корня репозитория** `KION2_exp`:
+
+```bash
+python app/stgcn/tools/build_ntu_xsub_2d_25_18.py
+```
+
+Скрипт использует `STGCN_ROOT = app/stgcn` и читает/пишет под `app/stgcn/data/` (см. `tools/build_ntu_xsub_2d_25_18.py`).
+
+**Обучение ST-GCN** (`app/stgcn/main.py`): рабочий каталог — **`app/stgcn`**. В `config/st_gcn/ntu-xsub-kinetics-2d/train.yaml` пути к `.npy`/`.pkl` заданы относительно него, например `./data/NTU-RGB-D-2D-from-color/xsub_train_data18.npy`. Логи и чекпоинты — в `./work_dir/...` (см. поле `work_dir` в том же yaml).
+
+Цепочка в общем виде: **`.skeleton` → `build_ntu_xsub_2d_25_18.py` → `*_data18.npy` + `*_label.pkl` → `feeder.feeder.Feeder` → `net.st_gcn.Model` (60 классов NTU, layout openpose).**
 

@@ -5,7 +5,8 @@
 - показывает баланс классов (самые частые и редкие метки);
 - печатает форму массива скелетов (N, 3, T, 18, M);
 - выводит статистику по координатам (x, y, score) для первого клипа;
-- рисует несколько кадров первого клипа и сохраняет их в PNG.
+- рисует несколько кадров первого клипа и сохраняет PNG в корень проекта:
+  `<имя_сэмпла>_sample0_person0.png` (например `S001C001P003R001A002_sample0_person0.png`).
 
 По умолчанию ожидает файлы из `video_samples`:
     - labels: `video_samples/val_label.pkl`
@@ -25,19 +26,35 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+import re
+
 import numpy as np
 import pickle
 from collections import Counter
 import matplotlib.pyplot as plt
 
+
+def _safe_filename_stem(name: str, max_len: int = 120) -> str:
+    """Имя файла без опасных символов (для NTU/Kinetics имён сэмплов)."""
+    stem = Path(str(name)).stem
+    stem = re.sub(r"[^\w\-_.]+", "_", stem, flags=re.UNICODE)
+    return stem[:max_len] if len(stem) > max_len else stem
+
 # Пути к файлам меток и данных (относительно корня проекта)
-label_path = ROOT / "video_samples" / "val_label.pkl"
-data_path = ROOT / "video_samples" / "val_data.npy"
+label_path = ROOT / "video_samples" / "xsub_val_label.pkl"
+data_path = ROOT / "video_samples" / "xsub_val_data18.npy"
 
 with open(label_path, "rb") as f:
     sample_name, sample_label = pickle.load(f)
 
 print("Всего сэмплов:", len(sample_name))
+
+target = "S001C001P001R001A023"
+
+for i, name in enumerate(sample_name):
+    if Path(str(name)).stem == target:
+        print("index =", i)
+        break
 
 # считаем частоты классов
 counter = Counter(sample_label)
@@ -56,7 +73,7 @@ data = np.load(data_path, mmap_mode="r")
 print("\nФорма data:", data.shape)  # (N, C, T, V, M)
 
 N, C, T, V, M = data.shape
-sample_idx = 0
+sample_idx = 96
 person_idx = 0
 person = data[sample_idx, :, :, :, person_idx]  # (3, T, V)
 
@@ -96,10 +113,17 @@ for i in range(num_frames_to_show):
         ax.text(xx, yy, str(j), fontsize=6)
     ax.set_title(f"frame {t}")
     ax.invert_yaxis()
-    ax.axis("off")
+    ax.set_aspect("equal", adjustable="box")
+    ax.grid(True, alpha=0.4, linestyle="-", linewidth=0.5)
+    row, col = i // cols, i % cols
+    if row == rows - 1:
+        ax.set_xlabel("x")
+    if col == 0:
+        ax.set_ylabel("y")
 
 plt.tight_layout()
-# В среде без интерактивного окна сохраняем картинку в файл
-out_path = "sample0_person0_frames.png"
+sample_stem = _safe_filename_stem(sample_name[sample_idx])
+out_name = f"{sample_stem}_sample{sample_idx}_person{person_idx}.png"
+out_path = ROOT / out_name
 plt.savefig(out_path, dpi=150)
-print(f"\nКадры первого ролика первого человека сохранены в {out_path}")
+print(f"\nКадры sample {sample_idx} (person {person_idx}) сохранены: {out_path}")
