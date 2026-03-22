@@ -2,8 +2,8 @@
 Полный пайплайн: видео → позы (YOLO/VideoProcessor) → ST-GCN → Top‑k действий.
 
 По умолчанию пресет **NTU-60** (--dataset ntu60): 60 классов, label_map из
-app/stgcn/ntu60-id2label.txt, веса по умолчанию — models/epoch42_model.pt
-(смените путь в коде или передайте --stgcn_weights).
+models/stgcn/ntu60-id2label.txt, веса по умолчанию — models/st_gcn.ntu60.pt
+(положите выбранный чекпоинт под этим именем или передайте --stgcn_weights).
 
 Координаты нормализуются по размеру кадра видео (как в json_to_stgcn_adapter).
 
@@ -23,14 +23,14 @@ Kinetics-400 (400 классов, другие дефолтные веса и la
 import sys
 from pathlib import Path
 
-# Корень проекта в sys.path для импорта app
+# Корень проекта в sys.path для импорта models.stgcn
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import argparse
 
-from app.stgcn.json_to_stgcn_adapter import recognize_action_from_video
+from models.stgcn.json_to_stgcn_adapter import recognize_action_from_video
 
 
 def main():
@@ -66,7 +66,7 @@ def main():
         default=None,
         help=(
             "Путь к весам ST-GCN (.pt). Если не задан — из пресета --dataset "
-            "(ntu60: models/epoch42_model.pt, kinetics400: models/st_gcn.kinetics.pt)."
+            "(ntu60: models/st_gcn.ntu60.pt, kinetics400: models/st_gcn.kinetics.pt)."
         ),
     )
     parser.add_argument(
@@ -109,11 +109,11 @@ def main():
     # Дефолты для ntu60 / kinetics400 (см. docstring модуля)
     if args.dataset == "kinetics400":
         default_weights = "models/st_gcn.kinetics.pt"
-        default_label_map = "app/stgcn/kinetics400-id2label.txt"
+        default_label_map = "models/stgcn/kinetics400-id2label.txt"
         default_num_class = 400
     elif args.dataset == "ntu60":
-        default_weights = "models/epoch42_model.pt"
-        default_label_map = "app/stgcn/ntu60-id2label.txt"
+        default_weights = "models/st_gcn.ntu60.pt"
+        default_label_map = "models/stgcn/ntu60-id2label.txt"
         default_num_class = 60
     else:
         raise ValueError(f"Unknown dataset preset: {args.dataset}")

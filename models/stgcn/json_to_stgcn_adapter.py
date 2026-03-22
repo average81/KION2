@@ -162,7 +162,7 @@ def recognize_action_from_video(
     device: str = "cpu",
     k: int = 5,
     stgcn_weights_path: str = "models/st_gcn.kinetics.pt",
-    label_map_path: str | None = "app/stgcn/kinetics400-id2label.txt",
+    label_map_path: str | None = "models/stgcn/kinetics400-id2label.txt",
     num_class: int | None = None,
 ):
     """

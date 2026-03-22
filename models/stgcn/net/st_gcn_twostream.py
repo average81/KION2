@@ -3,8 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-from app.stgcn.tgcn import ConvTemporalGraphical
-from app.stgcn.graph import Graph
+from .utils.tgcn import ConvTemporalGraphical
+from .utils.graph import Graph
 
 from .st_gcn import Model as ST_GCN
 

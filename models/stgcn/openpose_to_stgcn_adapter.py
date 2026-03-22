@@ -66,7 +66,7 @@ def load_sequence_from_json_dir(json_dir, min_score=0.1, width=340, height=256):
         coords = kps[:, :2].copy()  # (18,2) пиксели
         conf_18 = kps[:, 2]
 
-        # Нормализация как в Kinetics (feeder_kinetics): [0,1] по кадру, затем -0.5
+        # Нормализация как в Kinetics / ST-GCN: [0,1] по кадру, затем -0.5
         coords = coords / wh - 0.5
         coords[conf_18 < 1e-6] = 0  # обнуляем точки с нулевым score
 

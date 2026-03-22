@@ -19,7 +19,7 @@
 import sys
 from pathlib import Path
 
-# Корень проекта в sys.path, чтобы находился модуль app при запуске скрипта из любой папки
+# Корень проекта в sys.path, чтобы находился пакет models (в т.ч. models.stgcn)
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -29,7 +29,7 @@ import argparse
 import matplotlib.pyplot as plt
 import numpy as np
 
-# Рёбра скелета OpenPose 18 (как в app/stgcn/graph.py)
+# Рёбра скелета OpenPose 18 (layout как в models/stgcn/net/utils/graph.py)
 SKELETON_EDGES_18 = [
     (4, 3), (3, 2), (7, 6), (6, 5), (13, 12), (12, 11),
     (10, 9), (9, 8), (11, 5), (8, 2), (5, 1), (2, 1),
@@ -99,12 +99,12 @@ def main():
     args = parser.parse_args()
 
     if args.json_dir:
-        from app.stgcn.openpose_to_stgcn_adapter import load_sequence_from_json_dir
+        from models.stgcn.openpose_to_stgcn_adapter import load_sequence_from_json_dir
         data_numpy = load_sequence_from_json_dir(
             args.json_dir, width=args.width, height=args.height
         )
     else:
-        from app.stgcn.json_to_stgcn_adapter import load_sequence_from_our_json
+        from models.stgcn.json_to_stgcn_adapter import load_sequence_from_our_json
         data_numpy = load_sequence_from_our_json(
             args.json_file, width=args.width, height=args.height
         )

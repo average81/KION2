@@ -2,7 +2,8 @@
 import os
 import json
 import torch
-from models.stgcn.st_gcn import Model
+# Та же реализация, что и при обучении (config: model: net.st_gcn.Model)
+from models.stgcn.net.st_gcn import Model
 
 class STGCNWrapper:
     def __init__(
