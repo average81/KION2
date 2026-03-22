@@ -1,123 +1,179 @@
 # KION2
 
-Подбор и обучение моделей, которые по позам (pose estimation) актёров в видео определяют их действия на предложенном датасете.
+## О проекте
 
-Установите зависимости:
-   
-   **Установите PyTorch с нужной версией CUDA:**
-   
-   ```bash
-   # Проверьте версию CUDA: 
-   nvidia-smi
-   
-   # Для CUDA 13.0:
-   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130
-   
-   # Для CUDA 12.8:
-   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
-   
-   # Для CUDA 12.6:
-   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
-   
-   # Для CUDA 12.1:
-   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
-   
-   # Для CUDA 11.8:
-   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
-   
-   # Для CPU (если нет GPU):
-   pip install torch torchvision
-   ```
-   
-   **Важно:** 
-   - Сначала установите PyTorch, затем остальные зависимости
-   - Для актуальной информации о совместимых версиях используйте официальный сайт: https://pytorch.org/get-started/locally/
+**Задача:** по видео с людьми определить **класс действия** (ходьба, мах рукой, вставание и т.п.) — в духе датасетов вроде NTU RGB+D / Kinetics-Skeleton, без разметки «вручную» на каждом кадре, опираясь на **скелет** (ключевые точки тела).
 
+**Как это устроено:**
+
+1. **Оценка позы** — из кадров извлекаются координаты суставов (в проекте — пайплайн на **YOLO-Pose** / `VideoProcessor`, см. `config.yml` и тесты).
+2. **Распознавание действия** — последовательность поз подаётся в **ST-GCN** (графовая сеть по скелету во времени): на выходе — вероятности по классам действий (например, **60 классов NTU-60** или **400 Kinetics**, в зависимости от весов и конфига).
+3. **Обучение** — по желанию модель ST-GCN дообучается на своих данных в формате скелетов (конфиги в `models/stgcn/config/`, данные и сборка `.npy` — в `models/stgcn/data/` и скриптах сборки).
+
+**Что лежит в репозитории:** код пайплайна «видео → позы → действие», обвязка ST-GCN, утилиты для данных и отладки; тяжёлые веса и датасеты — локально или по ссылкам (готовые веса ST-GCN для NTU и Kinetics — в разделе «Демо» ниже).
+
+Подбор и обучение моделей ведётся под **pose estimation** актёров и последующую классификацию действий на выбранном датасете.
+
+### Откуда взята идея (исходный ST-GCN)
+
+Распознавание действий по **скелету** в виде **ST-GCN** (Spatial Temporal Graph Convolutional Network) опирается на оригинальную работу и открытый код:
+
+- **Статья:** S. Yan, Y. Xiong, D. Lin — *Spatial Temporal Graph Convolutional Networks for Skeleton-Based Action Recognition* (AAAI 2018), [arXiv:1801.07455](https://arxiv.org/abs/1801.07455).
+- **Репозиторий с кодом обучения и конфигами:** [github.com/yysijie/st-gcn](https://github.com/yysijie/st-gcn).
+
+В **KION2** используется **адаптированная** часть этого пайплайна (`models/stgcn/`: `main.py`, сеть, фидеры, конфиги под NTU/Kinetics). Снимки оригинальных конфигов и описания — в каталоге `models/stgcn/config/st_gcn/upstream/`.
+
+**Важно:** в [yysijie/st-gcn](https://github.com/yysijie/st-gcn) основной фокус — модель ST‑GCN и обучение по уже подготовленным скелетным данным (NTU 3D‑скелеты, Kinetics‑skeleton от OpenPose), плюс скрипты упаковки этих скелетов в `.npy`/`.pkl` для тренинга. В репозитории есть демо, которое умеет прогонять OpenPose по видео, но универсальный конвейер «произвольные свои видео → собственный скелетный датасет для обучения» там не завершён и остаётся на стороне пользователя.
+
+В **KION2** сейчас реализован свой блок оценки поз (YOLO‑Pose, `VideoProcessor`, см. `config.yml` и `tests/`), который позволяет одним запуском получить JSON с 2D‑ключевыми точками из видео. Цепочка «видео → позы → действие» у нас собирается из этого блока оценки поз и адаптированного ST‑GCN; автоматической упаковки таких поз в `.npy`/`.pkl` для обучения пока нет и планируется как следующий шаг пайплайна.
+
+### Наша разработка (поверх ST-GCN)
+
+Отдельно от upstream заложено следующее — **это разработка KION2**:
+
+- **Работа с 2D-скелетами** — весь целевой сценарий завязан на **плоские** координаты суставов (OpenPose-18, формат как у Kinetics-skeleton), а не на 3D-ветку оригинального пайплайна.
+- **Подготовка датасета для 2D** — скрипты и пайплайн сборки массивов из NTU RGB+D (в т.ч. из `.skeleton` в `*_data18.npy` / метки `.pkl` под конфиги `ntu-xsub-kinetics-2d`), пути и нормализация под нашу обвязку: см. `models/stgcn/tools/build_ntu_xsub_2d_25_18.py` и разделы ниже про данные.
+
+## Установка зависимостей
+
+**PyTorch** — подберите сборку под свою версию CUDA:
+
+```bash
+# Проверьте версию CUDA:
+nvidia-smi
+
+# Для CUDA 13.0:
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130
+
+# Для CUDA 12.8:
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+
+# Для CUDA 12.6:
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+
+# Для CUDA 12.1:
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+
+# Для CUDA 11.8:
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+
+# Для CPU (если нет GPU):
+pip install torch torchvision
+```
+
+**Важно:**
+
+- Сначала установите PyTorch, затем остальные зависимости.
+- Актуальные сборки: [pytorch.org — Get Started](https://pytorch.org/get-started/locally/)
+
+Остальные пакеты:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Для работы необходим ffmpeg
-Установка Ubuntu Linux: 
+## ffmpeg
 
-```
+Нужен для части сценариев работы с видео.
+
+**Ubuntu / Linux:**
+
+```bash
 sudo apt update
 sudo apt install ffmpeg
 ```
-Установка Windows10/11: 
 
-```
+**Windows 10/11:**
+
+```bash
 winget install ffmpeg
 ```
 
+## Заметки: сторонние варианты pose estimation
 
-Основные варианты для pose estimation
+Справочный обзор (MediaPipe, OpenPose, YOLO-pose и др.) вынесен в отдельный файл — для KION2 он **необязателен**; в проекте используется свой пайплайн оценки позы (см. раздел «О проекте» выше).
 
-MediaPipe / BlazePose (Google)
-Что это: лёгкая модель позы тела (есть варианты full / lite).
-Плюсы: очень быстро, хорошо для реального времени, есть готовые пайплайны, простое API.
-Минусы: меньше точность, чем тяжёлые SOTA‑модели; закрытая экосистема, но бесплатная.
+- **[notes/pose_estimation_overview.md](notes/pose_estimation_overview.md)** — обзор вариантов  
+- **[notes/README.md](notes/README.md)** — список заметок в каталоге `notes/`
 
-MoveNet (Google, через TensorFlow / TF Hub)
-Что это: очень быстрая и достаточно точная 2D‑поза.
-Плюсы: отлично подходит для видео в реальном времени, простая интеграция в Python.
-Минусы: по качеству суставов иногда уступает тяжёлым моделям типа HRNet.
+## Справочник по данным (формат скелета)
 
-OpenPose
-Что это: классический фреймворк для позы тела + рук + лица.
-Плюсы: много примеров, хорошее качество, много точек.
-Минусы: медленный, тяжёлый, запуск сложнее; может быть оверхед для хакатона.
+**Зачем:** понять, в каком виде хранятся суставы, как нормализуются координаты и как устроены `.npy`/`.pkl` — это нужно и для обучения, и для отладки инференса.
 
-AlphaPose
-Что это: высокоточная multi-person pose estimation.
-Плюсы: хорошее качество, много туториалов.
-Минусы: тяжелее в настройке, медленнее, чем MediaPipe/MoveNet.
+- **[Формат поз и нормализация](models/stgcn/docs/pose_and_normalization.md)** — OpenPose-18, нормализация,  
+  связь с NTU (`models/stgcn/data/`).
 
-MMPose (из MMDetection / OpenMMLab)
-Что это: огромный зоопарк моделей (HRNet, ResNet‑based, и т.д.).
-Плюсы: можно выбрать баланс скорость/точность, единый API, много готовых конфигов.
-Минусы: порог входа выше, нужно разбираться с конфигами и экосистемой.
+---
 
-Detectron2 (Keypoint R-CNN)
-Что это: general‑purpose фреймворк от Meta, есть keypoint‑модели.
-Плюсы: мощно и гибко.
-Минусы: тяжело для быстрых экспериментов, сложность настройки.
+## Подготовка данных NTU (если обучаете ST-GCN сами)
 
-YOLO‑pose (YOLOv7‑pose, YOLOv8‑pose)
-Что это: модели, совмещающие детекцию человека и суставов.
-Плюсы: быстро, удобно, если нужно сразу и человек, и ключевые точки.
-Минусы: экосистема не такая устоявшаяся, как у OpenPose/MediaPipe.
+**Зачем:** из сырых скелетов NTU собрать массивы `*.npy` и метки `*.pkl`, которые читает `main.py` по конфигам.
 
-## Документация
+- Корень данных: **`models/stgcn/data/`** (подробнее: `models/stgcn/data/README.md`).
+- Исходники: `*.skeleton` в `NTU-RGB-D/nturgb+d_skeletons/`
+- Списки сплита: `xsub_train_label.pkl`, `xsub_val_label.pkl` в `NTU-RGB-D-2D-from-color/`
+- После сборки: `xsub_*_data25.npy`, `xsub_*_data18.npy`, `*_label.pkl` в том же каталоге  
+- Большие файлы и логи в репо не коммитятся; чекпоинты обучения — в `models/stgcn/work_dir/`
 
-- [Формат поз и нормализация](models/stgcn/docs/pose_and_normalization.md) — нумерация 18 суставов (OpenPose), схема нормализации координат, размер кадра, формат `.npy`/`.pkl`, пути к данным NTU (`models/stgcn/data/`).
-
-### NTU RGB+D: сплиты и сборка `.npy` (скрипт `models/stgcn/tools/build_ntu_xsub_2d_25_18.py`)
-
-Корень данных: **`models/stgcn/data/`** (см. также `models/stgcn/data/README.md`). Файлы `*.skeleton` и `*.npy` **не коммитятся** (см. `.gitignore`); логи и веса обучения — в `models/stgcn/work_dir/` (тоже игнорируется).
-
-| Файл / папка | Назначение |
-|--------------|------------|
-| `models/stgcn/data/NTU-RGB-D-2D-from-color/xsub_train_label.pkl` / `xsub_val_label.pkl` | списки имён и меток для xsub (используются скриптом сборки) |
-| `models/stgcn/data/NTU-RGB-D/nturgb+d_skeletons/*.skeleton` | исходные скелеты NTU |
-| `models/stgcn/data/NTU-RGB-D-2D-from-color/` | сюда сохраняются `xsub_*_data25.npy`, `xsub_*_data18.npy`, `xsub_*_label.pkl` |
-
-Запуск из корня репозитория:
+Скрипт сборки:
 
 ```bash
 python models/stgcn/tools/build_ntu_xsub_2d_25_18.py
 ```
 
-Конфиги обучения/теста ST-GCN: см. **[models/stgcn/config/st_gcn/README.md](models/stgcn/config/st_gcn/README.md)** (активные: `ntu-xsub-kinetics-2d`, `kinetics-skeleton`; прочее — в `upstream/`).
+---
 
-## Запуск пайплайна «видео → действие»
+## Обучение классификатора действий (ST-GCN)
 
-- `tests/action_detection_video-yolo-stgcn.py` — полный прогон: видео → позы (YOLO/VideoProcessor) → ST-GCN → Top‑5 действий. Запуск из корня: `python tests/action_detection_video-yolo-stgcn.py path/to/video.mp4`.
+**Зачем:** обучить или дообучить сеть, которая по **последовательности скелетов** выдаёт класс действия (не путать с «видео → действие» в следующем разделе — там уже готовый демо-скрипт).
 
-## Вспомогательные скрипты (анализ и отладка)
+- Описание конфигов: **[models/stgcn/config/st_gcn/README.md](models/stgcn/config/st_gcn/README.md)**  
+  (`ntu-xsub-kinetics-2d` — NTU, `kinetics-skeleton` — 400 классов; прочее — `upstream/`).
+- Запуск из каталога **`models/stgcn`**:
 
-- `tests/tools/inspect_labels.py` — быстрый осмотр датасета Kinetics-skeleton или совместимого `.npy + .pkl`: баланс классов, форма `(N, 3, T, 18, M)`, статистика по каналам, визуализация нескольких кадров первого клипа.
-- `tests/tools/show_inference_input.py` — показывает тот же numpy, который подаётся в ST-GCN при инференсе (через OpenPose JSON или наш JSON от `VideoProcessor`), печатает статистику по каналам и рисует скелеты.
-- `tests/tools/test_stgcn_on_openpose_data.py` — прогоняет предобученную ST-GCN по папке с OpenPose `*_keypoints.json` для одного ролика, выводит Top‑5 предсказаний.
-- `tests/tools/validate_stgcn_npy_pkl.py` — оффлайновая валидация ST-GCN на готовом `.npy` (+ `.pkl` с метками): считает Top‑1/Top‑5 accuracy или выводит предсказания для ручной проверки.
+```bash
+cd models/stgcn
+python main.py recognition -c config/st_gcn/ntu-xsub-kinetics-2d/train.yaml
+```
+
+---
+
+## Демо: одно видео → позы → действие (инференс)
+
+**Зачем:** без своего датасета прогнать **ролик**: из кадров извлекаются позы, затем ST-GCN выводит Top‑k классов действий.
+
+### Веса
+
+Готовые чекпоинты ST-GCN лежат в одной папке на облаке:
+
+- **[KION2_weights — Облако Mail](https://cloud.mail.ru/public/bDAx/TJPWohriL)** — оттуда же берите и **NTU-60**, и **Kinetics** (400 классов).
+
+| Файл в `models/` | Назначение |
+|------------------|------------|
+| **`st_gcn.ntu60.pt`** | 60 классов NTU (пресет `--dataset ntu60` в демо-скрипте) |
+| **`st_gcn.kinetics.pt`** | 400 классов Kinetics-Skeleton (`--dataset kinetics400`) |
+
+Положить нужные `.pt` в каталог **`models/`** под этими именами или указать путь: `--stgcn_weights путь.pt`. Свой чекпоинт после обучения можно положить рядом и передать тем же флагом.
+
+### Скрипт и команда
+
+Скрипт: `tests/action_detection_video-yolo-stgcn.py` (YOLO / VideoProcessor → ST-GCN).
+
+Из **корня репозитория**:
+
+```bash
+python tests/action_detection_video-yolo-stgcn.py path/to/video.mp4
+```
+
+---
+
+## Утилиты для отладки и проверки данных
+
+**Зачем:** смотреть баланс классов, форму тензоров, прогонять ST-GCN по отдельным JSON/`.npy` без полного видео-пайплайна.
+
+| Скрипт | Что делает |
+|--------|------------|
+| `tests/tools/inspect_labels.py` | обзор `.npy` + `.pkl`: классы, форма `(N, 3, T, 18, M)`, статистика каналов |
+| `tests/tools/show_inference_input.py` | что уходит в ST-GCN при инференсе, визуализация скелетов |
+| `tests/tools/test_stgcn_on_openpose_data.py` | ST-GCN по папке `*_keypoints.json`, Top‑5 |
+| `tests/tools/validate_stgcn_npy_pkl.py` | оффлайн Top‑1/Top‑5 или предсказания по `.npy`/`.pkl` |
