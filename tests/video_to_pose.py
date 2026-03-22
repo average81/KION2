@@ -7,8 +7,16 @@ python
 python tests/video_to_pose.py video_samples/video_in.avi
 python -m tests.video_to_pose video_samples/video_in.avi
 
+Пакетно по нескольким папкам (сохраняется структура подпапок в --output_dir):
+python tests/video_to_pose.py --batch_root ./data/group_a ./data/group_b --output_dir outputs/batch
+python tests/video_to_pose.py --batch_root ./videos --recursive --output_dir outputs/batch
+
+NTU RGB+D (`nturgb+d_rgb`): видео в подпапках вида S001C001... — обязательно добавьте --recursive.
+
 Параметры:
-  video              путь к входному видео
+  video              путь к одному входному видео (не используется вместе с --batch_root)
+  --batch_root DIR   одна или несколько корневых папок; обработать все видео внутри
+  --recursive        с --batch_root: искать видео во вложенных каталогах (по умолчанию только файлы внутри каждой корневой папки)
   --output_dir DIR   каталог для сохранения JSON и видео с позами (по умолчанию: outputs)
   --config_path CFG  путь к config.yml для VideoProcessor (по умолчанию: config.yml)
   --no_vis           не сохранять видео с наложенным скелетом, только JSON
@@ -29,6 +37,63 @@ import utils.utils as utils
 from models.pose_format import JOINTS
 from utils.visualize import NAME2IDX, IDX2NAME, SKELETON_EDGES
 from utils.visualize import draw_pose, debug_draw_joints, get_color_for_person, _is_zero_point
+
+VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".mkv", ".webm", ".m4v"}
+
+
+def resolve_config_path(cfg: str) -> str:
+    """Корневой config.yml из репозитория, если запуск не из корня проекта."""
+    p = Path(cfg)
+    if p.is_file():
+        return str(p.resolve())
+    root_candidate = ROOT / cfg
+    if root_candidate.is_file():
+        return str(root_candidate.resolve())
+    return cfg
+
+
+def iter_videos_in_roots(roots: list[Path], recursive: bool) -> list[Path]:
+    """Собрать все видеофайлы из списка корневых каталогов."""
+    out: list[Path] = []
+    for root in roots:
+        root = root.resolve()
+        if not root.is_dir():
+            raise NotADirectoryError(f"Не каталог: {root}")
+        if recursive:
+            for p in root.rglob("*"):
+                if p.is_file() and p.suffix.lower() in VIDEO_EXTENSIONS:
+                    out.append(p)
+        else:
+            for p in root.iterdir():
+                if p.is_file() and p.suffix.lower() in VIDEO_EXTENSIONS:
+                    out.append(p)
+    out.sort()
+    return out
+
+
+def output_subdir_for_video(
+    video_path: Path,
+    batch_root: Path,
+    base_output: Path,
+    multiple_roots: bool,
+) -> Path:
+    """
+    Каталог для JSON/vis: base_output / [метка корня /] относительный_путь_к_папке_с_файлом.
+
+    Если несколько корней и все называются одинаково (типично NTU: .../nturgbd_rgb_s00X/nturgb+d_rgb),
+    в качестве метки берётся родитель («s00X»), иначе — имя самого batch_root.
+    """
+    batch_root = batch_root.resolve()
+    rel = video_path.resolve().relative_to(batch_root)
+    parent = rel.parent
+    if multiple_roots:
+        if batch_root.name == "nturgb+d_rgb":
+            label = batch_root.parent.name
+        else:
+            label = batch_root.name
+        return base_output / label / parent
+    return base_output / parent
+
 
 def load_poses_by_frame(json_path: str | Path):
     json_path = Path(json_path)
@@ -137,7 +202,22 @@ if __name__ == "__main__":
     parser.add_argument(
         "video",
         type=str,
-        help="Путь к входному видеофайлу.",
+        nargs="?",
+        default=None,
+        help="Путь к одному входному видеофайлу (не используется с --batch_root).",
+    )
+    parser.add_argument(
+        "--batch_root",
+        type=str,
+        nargs="+",
+        default=None,
+        metavar="DIR",
+        help="Одна или несколько папок: обработать все видео внутри (см. --recursive).",
+    )
+    parser.add_argument(
+        "--recursive",
+        action="store_true",
+        help="С --batch_root: искать видео во всех вложенных подпапках.",
     )
     parser.add_argument(
         "--config_path",
@@ -174,14 +254,72 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
+    config_path = resolve_config_path(args.config_path)
+
+    if args.batch_root and args.video:
+        parser.error("Укажите либо один файл video, либо --batch_root, не оба варианта.")
+    if not args.batch_root and not args.video:
+        parser.error("Нужен путь к видео или хотя бы одна папка --batch_root.")
 
     logging.basicConfig(
         level=logging.INFO if args.verbose else logging.WARNING,
         format="%(asctime)s [%(levelname)s] %(message)s",
     )
 
+    if args.batch_root:
+        roots = [Path(p) for p in args.batch_root]
+        multiple = len(roots) > 1
+        videos: list[tuple[Path, Path]] = []  # (video_path, root_it_belongs_to)
+        for r in roots:
+            for v in iter_videos_in_roots([r], recursive=args.recursive):
+                videos.append((v, r.resolve()))
+        if not videos:
+            msg = (
+                f"Не найдено видео с расширениями {', '.join(sorted(VIDEO_EXTENSIONS))} "
+                "на верхнем уровне указанных папок."
+            )
+            if not args.recursive:
+                deeper = []
+                for r in roots:
+                    rp = Path(r).resolve()
+                    if rp.is_dir() and count_videos_recursive(rp) > 0:
+                        deeper.append(rp)
+                if deeper:
+                    raise SystemExit(
+                        msg
+                        + "\n\nВо вложенных подпапках ролики есть — для NTU RGB+D (nturgb+d_rgb) "
+                        "добавьте флаг --recursive."
+                    )
+            raise SystemExit(
+                msg
+                + " Проверьте пути. Если ролики глубже по дереву — используйте --recursive."
+            )
+        base_out = Path(args.output_dir)
+        ok, fail = 0, 0
+        for i, (video_path, batch_root) in enumerate(videos, 1):
+            sub_out = output_subdir_for_video(video_path, batch_root, base_out, multiple)
+            sub_out.mkdir(parents=True, exist_ok=True)
+            print(f"[{i}/{len(videos)}] {video_path} -> {sub_out}", flush=True)
+            try:
+                pipeline = PosePipeline(
+                    config_path=config_path,
+                    output_dir=str(sub_out),
+                )
+                pipeline.run(
+                    video_path=str(video_path),
+                    save_vis=not args.no_vis,
+                    show=args.show,
+                    debug_joints=args.debug_joints,
+                )
+                ok += 1
+            except Exception as e:
+                logging.exception("Ошибка: %s", video_path)
+                fail += 1
+        print(f"Готово: успешно {ok}, ошибок {fail}.")
+        raise SystemExit(0 if fail == 0 else 1)
+
     pipeline = PosePipeline(
-        config_path=args.config_path,
+        config_path=config_path,
         output_dir=args.output_dir,
     )
 
