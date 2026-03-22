@@ -1,7 +1,7 @@
 batch_size: 64
 act_frames: 120
 multimodal_model: TST
-pose_action_model: STGCN_model
+pose_action_model: Conv3dNet
 pose_ext_model: YOLOv26-Pose-N
 pose_ext_th: 0.1
 video_decimation: 1

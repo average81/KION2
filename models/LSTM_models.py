@@ -14,7 +14,7 @@ class LSTM_model:
 
     def predict(self,poses):
         # Принимает список объектов Pose
-        poses = poses[:30]
+
         result = self.model.predict(poses)
         action = Action()
         if result['confidence'] > self.threshold:

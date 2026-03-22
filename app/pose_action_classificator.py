@@ -1,6 +1,7 @@
 import logging
 from models.LSTM_models import LSTM_model
 from models.stgcn_models import STGCN_model,STGN_ACTIONS_MAPPING
+from models.conv3DCNN_models import conv3DCNN_model
 from models.action_format import *
 # Словарь поддерживаемых моделей (можно расширять)
 action_models = {
@@ -12,7 +13,9 @@ action_models = {
                                                      "label_map_path": "models/stgcn/kinetics400-id2label.txt",
                                                                  'mapping':STGN_ACTIONS_MAPPING }},
     "STGCN_model_rgbd": {"model":STGCN_model , "params": {"weights": "models/st_gcn.rgbd.pt",
-                                                              "label_map_path": "models/stgcn/ntu60-id2label.txt"} }
+                                                              "label_map_path": "models/stgcn/ntu60-id2label.txt"} },
+    "Conv3dNet": {"model":conv3DCNN_model,"params":{"weights":"models/conv3dcnn.pth", "num_classes": 60,
+                                                     "bodies":4}},
 }
 
 """

@@ -617,7 +617,7 @@ class LSTMSkeletonNet(nn.Module):
                 for joint_idx in sorted(JOINTS.keys()):
                     kpt = current_pose.keypoints[joint_idx]
                     # Предполагаем Z=0 для 2D поз
-                    keypoints_2d.append([kpt[5], kpt[6]])
+                    keypoints_2d.append([kpt[0], kpt[1]])
 
                 frames[frame_idx].append(keypoints_2d)
 
