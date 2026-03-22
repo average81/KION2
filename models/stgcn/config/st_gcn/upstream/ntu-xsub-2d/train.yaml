@@ -1,0 +1,39 @@
+# NTU RGB+D 2D — Cross-Subject. Данные: (x, y, mask), граф ntu-rgb+d (25 суставов).
+work_dir: ./work_dir/recognition/ntu-xsub-2d/ST_GCN
+
+# feeder
+feeder: feeder.feeder.Feeder
+train_feeder_args:
+  data_path: ./data/NTU-RGB-D-2D/xsub/train_data.npy
+  label_path: ./data/NTU-RGB-D-2D/xsub/train_label.pkl
+test_feeder_args:
+  data_path: ./data/NTU-RGB-D-2D/xsub/val_data.npy
+  label_path: ./data/NTU-RGB-D-2D/xsub/val_label.pkl
+
+# model
+model: net.st_gcn.Model
+model_args:
+  in_channels: 3
+  num_class: 60
+  dropout: 0.5
+  edge_importance_weighting: True
+  graph_args:
+    layout: 'ntu-rgb+d'
+    strategy: 'spatial'
+
+# optim
+weight_decay: 0.0001
+base_lr: 0.1
+step: [10, 50]
+
+# training
+device: [0]
+batch_size: 16
+test_batch_size: 16
+num_epoch: 80
+# как часто считать метрики на валидации (раз в N эпох)
+eval_interval: 3
+# как часто сохранять чекпоинт (раз в N эпох)
+save_interval: 3
+# как часто печатать loss в консоль (каждые N итераций)
+log_interval: 100

@@ -1,6 +1,6 @@
 import logging
 from models.LSTM_models import LSTM_model
-from models.stgcn_models import STGCN_model
+from models.stgcn_models import STGCN_model,STGN_ACTIONS_MAPPING
 from models.action_format import *
 # Словарь поддерживаемых моделей (можно расширять)
 action_models = {
@@ -8,8 +8,11 @@ action_models = {
                                                      "num_classes": 60,'fusion':'attention',
                                                      "hidden_size": 256, "num_layers": 2,
                                                      "bodies":2,"dropout": 0.4}},
-    "STGCN_model": {"model":STGCN_model , "params": {"weights": "models/st_gcn.kinetics.pt",
-                                                     "label_map_path": "models/stgcn/kinetics400-id2label.txt"} }
+    "STGCN_model_kinetics": {"model":STGCN_model , "params": {"weights": "models/st_gcn.kinetics.pt",
+                                                     "label_map_path": "models/stgcn/kinetics400-id2label.txt",
+                                                                 'mapping':STGN_ACTIONS_MAPPING }},
+    "STGCN_model_rgbd": {"model":STGCN_model , "params": {"weights": "models/st_gcn.rgbd.pt",
+                                                              "label_map_path": "models/stgcn/ntu60-id2label.txt"} }
 }
 
 """
@@ -65,7 +68,6 @@ class PoseActionClassificator:
     def classify(self,poses):
         # Создаем словарь для группировки поз по id
         poses_by_id = {}
-
         for pose in poses:
             person_id = pose.id
             if person_id not in poses_by_id:

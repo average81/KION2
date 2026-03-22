@@ -427,7 +427,7 @@ class STGCN_model:
         self.threshold = threshold
         weights_path = model_params.get("weights")
         label_map_path = model_params.get("label_map_path", None)
-        self.actions_mapping = STGN_ACTIONS_MAPPING
+        self.actions_mapping = model_params.get("mapping", None)
 
         if not weights_path:
             raise ValueError("Параметр 'weights' обязателен в model_params")
@@ -465,10 +465,13 @@ class STGCN_model:
         if self.model.id2label is not None:
             action_name = self.model.id2label.get(str(conf_idx), f"action_{conf_idx}")
         else:
-            action_name = f"kinetics_class_{conf_idx}"
+            action_name = f"class_{conf_idx}"
         action = Action()
         if confidence > self.threshold:
-            action.action_id =int(STGN_ACTIONS_MAPPING[conf_idx])
+            if self.actions_mapping is not None:
+                action.action_id =int(self.actions_mapping[conf_idx])
+            else:
+                action.action_id = conf_idx
             action.action_name =action_name
             action.conf =confidence
 
