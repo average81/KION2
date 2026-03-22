@@ -7,7 +7,7 @@
 | **`ntu-xsub-kinetics-2d/`** | NTU RGB+D 2D (color), формат как Kinetics `(N,3,T,18,2)` — основной сценарий проекта. |
 | **`kinetics-skeleton/`** | Kinetics-Skeleton, 400 классов (предобученные веса Kinetics). |
 
-Запуск из каталога `app/stgcn`:
+Запуск из каталога `models/stgcn`:
 
 ```bash
 python main.py recognition -c config/st_gcn/ntu-xsub-kinetics-2d/train.yaml

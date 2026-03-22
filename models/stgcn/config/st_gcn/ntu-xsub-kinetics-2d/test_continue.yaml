@@ -1,0 +1,29 @@
+# Оценка на val после train_continue.yaml (cwd = models/stgcn).
+# Веса из той же папки, что и train_continue: ...-continue/ST_GCN/
+#
+# При start_epoch=41, num_epoch=81 последний чекпоинт обычно epoch81_model.pt.
+# Если файла ещё нет — доучите continue или укажите --weights путь/к/epochNN_model.pt
+#
+# Запуск:
+#   python main.py recognition -c config/st_gcn/ntu-xsub-kinetics-2d/test_continue.yaml
+
+weights: ./work_dir/recognition/ntu-xsub-kinetics-2d-continue/ST_GCN/epoch81_model.pt
+
+feeder: feeder.feeder.Feeder
+test_feeder_args:
+  data_path: ./data/NTU-RGB-D-2D-from-color/xsub_val_data18.npy
+  label_path: ./data/NTU-RGB-D-2D-from-color/xsub_val_label.pkl
+
+model: net.st_gcn.Model
+model_args:
+  in_channels: 3
+  num_class: 60
+  edge_importance_weighting: True
+  graph_args:
+    layout: 'openpose'
+    strategy: 'spatial'
+
+phase: test
+device: 0
+# как test_feeder при eval в train (можно 64 для быстрее)
+test_batch_size: 32

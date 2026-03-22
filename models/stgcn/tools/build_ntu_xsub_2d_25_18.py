@@ -1,22 +1,22 @@
 """
 Сборка xsub train/val .npy/.pkl из NTU .skeleton (2D color).
 
-Пути к данным: app/stgcn/data/NTU-RGB-D/...
+Пути к данным: models/stgcn/data/NTU-RGB-D/...
 Запуск из корня репозитория:
-  python app/stgcn/tools/build_ntu_xsub_2d_25_18.py
+  python models/stgcn/tools/build_ntu_xsub_2d_25_18.py
 """
 import pickle
 from pathlib import Path
 import sys
 
-# Каталог app/stgcn — в sys.path, чтобы работал пакет `tools`
+# Каталог models/stgcn — в sys.path, чтобы работал пакет `tools`
 STGCN_ROOT = Path(__file__).resolve().parents[1]
 if str(STGCN_ROOT) not in sys.path:
     sys.path.insert(0, str(STGCN_ROOT))
 
 from tools.gen_ntu_2d_color_to_25_18 import build_ntu_2d_25_18
 
-# Данные NTU лежат под app/stgcn/data/ (не от cwd)
+# Данные NTU лежат под models/stgcn/data/ (не от cwd)
 DATA_ROOT = STGCN_ROOT / "data"
 
 def load_names_labels(pkl_path):

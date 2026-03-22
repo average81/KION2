@@ -91,25 +91,25 @@ YOLO‑pose (YOLOv7‑pose, YOLOv8‑pose)
 
 ## Документация
 
-- [Формат поз и нормализация](app/stgcn/docs/pose_and_normalization.md) — нумерация 18 суставов (OpenPose), схема нормализации координат, размер кадра, формат `.npy`/`.pkl`, пути к данным NTU (`app/stgcn/data/`).
+- [Формат поз и нормализация](models/stgcn/docs/pose_and_normalization.md) — нумерация 18 суставов (OpenPose), схема нормализации координат, размер кадра, формат `.npy`/`.pkl`, пути к данным NTU (`models/stgcn/data/`).
 
-### NTU RGB+D: сплиты и сборка `.npy` (скрипт `app/stgcn/tools/build_ntu_xsub_2d_25_18.py`)
+### NTU RGB+D: сплиты и сборка `.npy` (скрипт `models/stgcn/tools/build_ntu_xsub_2d_25_18.py`)
 
-Корень данных: **`app/stgcn/data/`** (см. также `app/stgcn/data/README.md`). Файлы `*.skeleton` и `*.npy` **не коммитятся** (см. `.gitignore`); логи и веса обучения — в `app/stgcn/work_dir/` (тоже игнорируется).
+Корень данных: **`models/stgcn/data/`** (см. также `models/stgcn/data/README.md`). Файлы `*.skeleton` и `*.npy` **не коммитятся** (см. `.gitignore`); логи и веса обучения — в `models/stgcn/work_dir/` (тоже игнорируется).
 
 | Файл / папка | Назначение |
 |--------------|------------|
-| `app/stgcn/data/NTU-RGB-D-2D-from-color/xsub_train_label.pkl` / `xsub_val_label.pkl` | списки имён и меток для xsub (используются скриптом сборки) |
-| `app/stgcn/data/NTU-RGB-D/nturgb+d_skeletons/*.skeleton` | исходные скелеты NTU |
-| `app/stgcn/data/NTU-RGB-D-2D-from-color/` | сюда сохраняются `xsub_*_data25.npy`, `xsub_*_data18.npy`, `xsub_*_label.pkl` |
+| `models/stgcn/data/NTU-RGB-D-2D-from-color/xsub_train_label.pkl` / `xsub_val_label.pkl` | списки имён и меток для xsub (используются скриптом сборки) |
+| `models/stgcn/data/NTU-RGB-D/nturgb+d_skeletons/*.skeleton` | исходные скелеты NTU |
+| `models/stgcn/data/NTU-RGB-D-2D-from-color/` | сюда сохраняются `xsub_*_data25.npy`, `xsub_*_data18.npy`, `xsub_*_label.pkl` |
 
 Запуск из корня репозитория:
 
 ```bash
-python app/stgcn/tools/build_ntu_xsub_2d_25_18.py
+python models/stgcn/tools/build_ntu_xsub_2d_25_18.py
 ```
 
-Конфиги обучения/теста ST-GCN: см. **[app/stgcn/config/st_gcn/README.md](app/stgcn/config/st_gcn/README.md)** (активные: `ntu-xsub-kinetics-2d`, `kinetics-skeleton`; прочее — в `upstream/`).
+Конфиги обучения/теста ST-GCN: см. **[models/stgcn/config/st_gcn/README.md](models/stgcn/config/st_gcn/README.md)** (активные: `ntu-xsub-kinetics-2d`, `kinetics-skeleton`; прочее — в `upstream/`).
 
 ## Запуск пайплайна «видео → действие»
 

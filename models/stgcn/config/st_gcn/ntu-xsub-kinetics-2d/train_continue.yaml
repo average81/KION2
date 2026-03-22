@@ -1,0 +1,52 @@
+# Продолжение обучения (cwd = models/stgcn).
+# Пара с test_continue.yaml — те же val-данные и та же папка с весами continue.
+#
+# Цикл: for epoch in range(start_epoch, num_epoch) → эпохи start_epoch .. num_epoch-1.
+#   start_epoch=41, num_epoch=81 → эпохи 41..80 (40 эпох).
+# Сохранение: epoch{epoch+1}_model.pt (при epoch=41 → epoch42_model.pt в work_dir ниже).
+#
+# Отдельный work_dir, чтобы не перезаписать epoch42 в ...-fromscratch/.
+
+phase: train
+
+work_dir: ./work_dir/recognition/ntu-xsub-kinetics-2d-continue/ST_GCN
+
+weights: ./work_dir/recognition/ntu-xsub-kinetics-2d-fromscratch/ST_GCN/epoch42_model.pt
+start_epoch: 41
+num_epoch: 81
+
+feeder: feeder.feeder.Feeder
+train_feeder_args:
+  random_choose: True
+  random_move: True
+  window_size: 150
+  data_path: ./data/NTU-RGB-D-2D-from-color/xsub_train_data18.npy
+  label_path: ./data/NTU-RGB-D-2D-from-color/xsub_train_label.pkl
+test_feeder_args:
+  data_path: ./data/NTU-RGB-D-2D-from-color/xsub_val_data18.npy
+  label_path: ./data/NTU-RGB-D-2D-from-color/xsub_val_label.pkl
+
+model: net.st_gcn.Model
+model_args:
+  in_channels: 3
+  num_class: 60
+  edge_importance_weighting: True
+  graph_args:
+    layout: 'openpose'
+    strategy: 'spatial'
+
+device: [0]
+batch_size: 32
+test_batch_size: 32
+
+optimizer: SGD
+base_lr: 0.01
+# LR ×0.1 после эпох step (внутренний счётчик epoch в adjust_lr — см. recognition.py)
+step: [50, 60]
+
+nesterov: True
+weight_decay: 0.0001
+
+eval_interval: 3
+save_interval: 3
+log_interval: 100

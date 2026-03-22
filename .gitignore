@@ -29,12 +29,12 @@ app/__pycache__/pose_estimator.cpython-311.pyc
 
 Open_pose_samples
 
-# --- ST-GCN (app/stgcn): артефакты сборки, обучения и тяжёлые данные ---
-app/stgcn/work_dir/
-app/stgcn/torchlight/build/
-app/stgcn/torchlight/dist/
-app/stgcn/torchlight/torchlight.egg-info/
+# --- ST-GCN (models/stgcn): артефакты сборки, обучения и тяжёлые данные ---
+models/stgcn/work_dir/
+models/stgcn/torchlight/build/
+models/stgcn/torchlight/dist/
+models/stgcn/torchlight/torchlight.egg-info/
 
 # NTU / Kinetics: скелеты и массивы (десятки ГБ) — хранить локально или снаружи репо
-app/stgcn/data/**/*.npy
-app/stgcn/data/**/*.skeleton
+models/stgcn/data/**/*.npy
+models/stgcn/data/**/*.skeleton

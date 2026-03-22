@@ -16,7 +16,7 @@
 import sys
 from pathlib import Path
 
-# Корень проекта в sys.path для импорта app
+# Корень проекта в sys.path для импорта models.stgcn
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -26,7 +26,7 @@ import pickle
 
 import numpy as np
 
-from app.stgcn.stgcn_wrapper import STGCNWrapper
+from models.stgcn.stgcn_wrapper import STGCNWrapper
 
 
 def load_validation_data(npy_path: str, pkl_path: str | None):
@@ -103,7 +103,7 @@ def main():
     parser.add_argument(
         "--labels-file",
         type=str,
-        default="app/stgcn/kinetics400-id2label.txt",
+        default="models/stgcn/kinetics400-id2label.txt",
         help="Путь к id2label (Kinetics).",
     )
     parser.add_argument(

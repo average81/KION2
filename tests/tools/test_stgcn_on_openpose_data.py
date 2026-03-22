@@ -15,15 +15,15 @@
 import sys
 from pathlib import Path
 
-# Корень проекта в sys.path для импорта app
+# Корень проекта в sys.path для импорта models.stgcn
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import argparse
 
-from app.stgcn.stgcn_wrapper import STGCNWrapper
-from app.stgcn.openpose_to_stgcn_adapter import load_sequence_from_json_dir
+from models.stgcn.stgcn_wrapper import STGCNWrapper
+from models.stgcn.openpose_to_stgcn_adapter import load_sequence_from_json_dir
 
 
 def main() -> None:
@@ -58,7 +58,7 @@ def main() -> None:
     # 2. Предобученная ST-GCN на Kinetics
     model = STGCNWrapper(
         weights_path="models/st_gcn.kinetics.pt",
-        label_map_path="app/stgcn/kinetics400-id2label.txt",
+        label_map_path="models/stgcn/kinetics400-id2label.txt",
         device="cpu",
     )
 
