@@ -1,0 +1,10 @@
+data:
+  skeleton_dir: "C:/Users/above/IdeaProjects/NTU-RGB+D 120/nturgb+d_skeletons"
+
+training:
+  batch_size: 128
+  epochs: 50
+  learning_rate: 0.001
+  weight_decay: 0.01
+  num_workers: 10
+  #pretrained_weights: "models/best_model.pth"  # или None
