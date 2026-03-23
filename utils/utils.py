@@ -1,5 +1,6 @@
 import yaml
 import numpy as np
+import torch
 from models.pose_format import Pose
 from pathlib import Path
 import json
@@ -16,6 +17,8 @@ def save_yaml(file, data):
 
 # Конвертер объектов в списки
 def numpy_to_builtin(obj):
+    if isinstance(obj, torch.Tensor):
+        return obj.cpu().numpy().tolist()
     if isinstance(obj, np.ndarray):
         return obj.tolist()
     if isinstance(obj, (np.integer, np.floating, np.bool_)):

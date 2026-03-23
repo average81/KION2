@@ -428,14 +428,15 @@ class STGCN_model:
         weights_path = model_params.get("weights")
         label_map_path = model_params.get("label_map_path", None)
         self.actions_mapping = model_params.get("mapping", None)
-
+        classes = model_params.get("num_classes", 400)
         if not weights_path:
             raise ValueError("Параметр 'weights' обязателен в model_params")
 
         # Создаем модель через обертку
         self.model = STGCNWrapper(
             weights_path=weights_path,
-            label_map_path=label_map_path
+            label_map_path=label_map_path,
+            num_class = classes
         )
 
         print(f"✅ Модель ST-GCN загружена через обертку. Веса: {weights_path}")

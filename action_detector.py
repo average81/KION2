@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+import time
 import utils.utils as utils
 from app.video_processor import VideoProcessor
 import json
@@ -20,13 +21,14 @@ if __name__ == "__main__":
         logging.basicConfig(level=logging.INFO)
     else:
         logging.basicConfig(level=logging.WARNING)
+    start_time = time.time()
     logger.info("Starting video processing...")
     if not os.path.exists(args.input_file):
         logger.error(f"Input file {args.input_file} does not exist.")
         exit()
     processor=VideoProcessor(args.input_file,output_dir=args.output_dir,verbose = args.verbose,
                              config_path =args.config_path)
-    result = processor.process()
+    result,_ = processor.process()
     serializable_result = utils.numpy_to_builtin(result)
     # Сохранение результатов в JSON (аналогично test_poses.py)
     output_json = os.path.join(args.output_dir, "results.json")
@@ -36,4 +38,7 @@ if __name__ == "__main__":
     with open(output_json, 'w', encoding='utf-8') as f:
         json.dump(serializable_result, f, ensure_ascii=False, indent=2)
 
+    end_time = time.time()
+    total_time = end_time - start_time
     logger.info(f"Results saved to {output_json}")
+    logger.info(f"Total processing time: {total_time:.2f} seconds")

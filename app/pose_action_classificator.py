@@ -9,10 +9,10 @@ action_models = {
                                                      "num_classes": 60,'fusion':'attention',
                                                      "hidden_size": 256, "num_layers": 2,
                                                      "bodies":2,"dropout": 0.4}},
-    "STGCN_model_kinetics": {"model":STGCN_model , "params": {"weights": "models/st_gcn.kinetics.pt",
+    "STGCN_model_kinetics": {"model":STGCN_model , "params": {"weights": "models/st_gcn.kinetics.pt","num_classes": 400,
                                                      "label_map_path": "models/stgcn/kinetics400-id2label.txt",
                                                                  'mapping':STGN_ACTIONS_MAPPING }},
-    "STGCN_model_rgbd": {"model":STGCN_model , "params": {"weights": "models/st_gcn.rgbd.pt",
+    "STGCN_model_rgbd": {"model":STGCN_model , "params": {"weights": "models/st_gcn.ntu60.pt","num_classes": 60,
                                                               "label_map_path": "models/stgcn/ntu60-id2label.txt"} },
     "Conv3dNet": {"model":conv3DCNN_model,"params":{"weights":"models/conv3dcnn.pth", "num_classes": 60,
                                                      "bodies":4}},
@@ -31,10 +31,11 @@ Attributes:
 """
 
 class PoseActionClassificator:
-    def __init__(self, model_name="LSTMSkeletonNet", action_period=30,threshold = 0.8,verbose=False):
+    def __init__(self, model_name="LSTMSkeletonNet", action_period=30,threshold = 0.8, min_pose_frames = 30, min_pair_poses_frames = 30, verbose=False):
         self.model_name = model_name
         self.action_period = action_period
-        
+        self.min_pair_poses_frames = min_pair_poses_frames
+        self.min_pose_frames = min_pose_frames
 
         
         # Проверка корректности имени модели
@@ -93,11 +94,56 @@ class PoseActionClassificator:
         results = []
         raw_res = []
         for batch in pose_batches:
-            # Берем последовательность длиной action_period
-            for i in range(len(batch) // self.action_period + 1):
-                sequence = batch[i*self.action_period:(i+1)*self.action_period ]
-                result,raw = self.classify_one(sequence)
-                results.append(result)
-                raw_res.append(raw)
-        return results,raw_res
+            # Проверяем, что актер присутствует в достаточном количестве кадров
+            if len(batch) >= self.min_pose_frames:
+                # Берем последовательность длиной action_period
+                for i in range(len(batch) // self.action_period + 1):
+                    sequence = batch[i*self.action_period:(i+1)*self.action_period ]
+                    result,raw = self.classify_one(sequence)
+                    results.append(result)
+                    raw_res.append(raw)
+            else:
+                self.logger.info(f"Person ID {batch[0].id} has only {len(batch)} frames, which is less than min_pose_frames={self.min_pose_frames}. Skipping classification.")
+
+        # Группировка поз по кадрам
+        poses_by_frame = {}
+        for pose in poses:
+            frame_idx = pose.frame_idx
+            if frame_idx not in poses_by_frame:
+                poses_by_frame[frame_idx] = []
+            poses_by_frame[frame_idx].append(pose)
+
+        # Поиск пар актеров в одном кадре и сборка батчей
+        pair_batches = {}
+        for frame_idx, frame_poses in poses_by_frame.items():
+            # Получаем уникальные ID актеров в кадре
+            person_ids_in_frame = [pose.id for pose in frame_poses]
+            # Генерируем пары
+            for i in range(len(person_ids_in_frame)):
+                for j in range(i + 1, len(person_ids_in_frame)):
+                    pair = tuple(sorted([person_ids_in_frame[i], person_ids_in_frame[j]]))
+                    if pair not in pair_batches:
+                        pair_batches[pair] = []
+                    # Добавляем позы для обоих актеров из этого кадра
+                    pair_poses = [pose for pose in frame_poses if pose.id in pair]
+                    pair_batches[pair].append(pair_poses)
+
+        # Классификация действий для парных батчей
+        for pair, batch in pair_batches.items():
+            if len(batch) >= self.min_pair_poses_frames:
+                # Сортируем батч по frame_idx
+                batch.sort(key=lambda x: x[0].frame_idx)
+                # Разбиваем на последовательности длиной action_period
+                for i in range(len(batch) // self.action_period + 1):
+                    sequence = batch[i*self.action_period:(i+1)*self.action_period]
+                    if len(sequence) == self.action_period:
+                        # Объединяем позы из пары для классификации
+                        flat_sequence = [pose for pair_poses in sequence for pose in pair_poses]
+                        result, raw = self.classify_one(flat_sequence)
+                        results.append(result)
+                        raw_res.append(raw)
+            else:
+                self.logger.info(f"Pair {pair} has only {len(batch)} frames, which is less than min_pair_poses_frames={self.min_pair_poses_frames}. Skipping classification.")
+
+        return results, raw_res
 
