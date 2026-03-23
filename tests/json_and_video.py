@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from utils.visualize import draw_pose, debug_draw_joints
+from utils.visualize import draw_pose, debug_draw_joints, draw_actions_on_frame
 
 import cv2
 
@@ -15,6 +15,61 @@ def load_poses_by_frame(json_path: str | Path):
     for p in raw_poses:
         frame_idx = p["frame_idx"]
         by_frame.setdefault(frame_idx, []).append(p)
+    return by_frame
+def load_actions_by_frame(json_path: str | Path, max_frame: int | None = None):
+    json_path = Path(json_path)
+    with json_path.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+    actions = data.get("pose_actions", [])
+    
+    # Проверка на пустой список действий
+    if not actions:
+        return {}
+    
+    # Создаем интервалы действий для каждого актера
+    actor_actions = {}
+    for action in actions:
+        frame_idx = action["frame_idx"]
+        actor_id = action.get("actor_id", 0)
+        
+        if actor_id not in actor_actions:
+            actor_actions[actor_id] = []
+        
+        actor_actions[actor_id].append({
+            "action": action,
+            "start_frame": frame_idx
+        })
+    
+    # Формируем словарь действий по кадрам
+    by_frame = {}
+    for actor_id, actions_list in actor_actions.items():
+        # Сортируем действия актера по кадрам
+        actions_list.sort(key=lambda x: x["start_frame"])
+        
+        # Для каждого действия устанавливаем интервал до следующего действия
+        for i, action_info in enumerate(actions_list):
+            start_frame = action_info["start_frame"]
+            # Конечный кадр является начало следующего действия или max_frame
+            end_frame = actions_list[i + 1]["start_frame"] if i + 1 < len(actions_list) else (max_frame or float('inf'))
+            
+            # Проверяем, что интервал валиден
+            if start_frame < end_frame:
+                # Добавляем действие во все кадры интервала
+                for frame_idx in range(start_frame, int(end_frame)):
+                    if frame_idx not in by_frame:
+                        by_frame[frame_idx] = []
+                    by_frame[frame_idx].append(action_info["action"])
+    
+    return by_frame
+def load_boxes_by_frame(json_path: str | Path):
+    json_path = Path(json_path)
+    with json_path.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+    poses = data.get("raw_poses",[])
+    by_frame = {}
+    for pose in poses:
+        frame_idx = pose["frame_idx"]
+        by_frame.setdefault(frame_idx, []).append(pose)
     return by_frame
 
 
@@ -31,6 +86,17 @@ def visualize_from_json(
     debug_joints: bool = False,
 ):
     poses_by_frame = load_poses_by_frame(json_path)
+    boxes_by_frame = load_boxes_by_frame(json_path)
+    
+    # Получаем общее количество кадров из видео
+    cap = cv2.VideoCapture(str(video_path))
+    if not cap.isOpened():
+        raise RuntimeError(f"Cannot open video: {video_path}")
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    cap.release()
+    
+    # Загружаем действия с учетом максимального количества кадров
+    actions_by_frame = load_actions_by_frame(json_path, max_frame=total_frames)
     cap = cv2.VideoCapture(str(video_path))
     if not cap.isOpened():
         raise RuntimeError(f"Cannot open video: {video_path}")
@@ -56,6 +122,11 @@ def visualize_from_json(
                 debug_draw_joints(frame, pose)
             else:
                 draw_pose(frame, pose)
+
+        actions = actions_by_frame.get(frame_idx, [])
+        boxes = boxes_by_frame.get(frame_idx, [])
+
+        draw_actions_on_frame(frame, boxes, actions, min_score = 0.1)
 
         if writer is not None:
             writer.write(frame)

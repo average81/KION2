@@ -130,3 +130,62 @@ def debug_draw_joints(frame, pose, conf_thr: float = 0.0):
             (255, 255, 0),
             1,
         )
+
+def draw_actions_on_frame(frame, boxes, actions, min_score: float = 0.5):
+    """
+    Рисует действия на кадре.
+
+    Args:
+        frame: изображение (массив NumPy)
+        boxes: список боксов [{'box': [x1, y1, x2, y2], 'person_id': int}]
+        actions: список действий [{'person_id': int, 'action': str, 'score': float}]
+        min_score: минимальная вероятность для отображения действия
+    """
+    # Создаем словарь действий по person_id, выбирая действие с максимальным score
+    best_actions = {}
+    for action in actions:
+        pid = action['person_id']
+        if pid not in best_actions or action['action']['conf'] > best_actions[pid]['action']['conf']:
+            best_actions[pid] = action
+
+    # Фильтруем по min_score
+    filtered_actions = {pid: act for pid, act in best_actions.items() if act['action']['conf'] >= min_score}
+    #if len(actions) > 0: print(actions)
+    # Создаем словарь боксов по person_id
+    boxes_dict = {box['person_id']: box['box'] for box in boxes}
+
+    # Рисуем для каждого человека
+    for pid, action in filtered_actions.items():
+        if pid not in boxes_dict:
+            continue
+        box = boxes_dict[pid]
+        x1, y1, x2, y2 = map(int, box)
+        color = get_color_for_person(pid)
+        
+        # Рисуем зеленый прямоугольник вокруг бокса
+        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        
+        # Подготавливаем текст
+        text = f"{action['action']['action_name']} ({action['action']['conf']:.2f})"
+        text_x = x1
+        text_y = y1 + 15
+        
+        # Рисуем текст с черным контуром для читаемости
+        cv2.putText(
+            frame,
+            text,
+            (text_x, text_y),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.6,
+            (0, 0, 0),  # черный контур
+            2
+        )
+        cv2.putText(
+            frame,
+            text,
+            (text_x, text_y),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.6,
+            (255, 255, 255),  # белый текст
+            1
+        )
