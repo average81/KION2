@@ -428,7 +428,7 @@ class STGCN_model:
         weights_path = model_params.get("weights")
         label_map_path = model_params.get("label_map_path", None)
         self.actions_mapping = model_params.get("mapping", None)
-        classes = model_params.get("num_classes", 400)
+        self.classes = model_params.get("num_classes", 400)
         if not weights_path:
             raise ValueError("Параметр 'weights' обязателен в model_params")
 
@@ -436,7 +436,7 @@ class STGCN_model:
         self.model = STGCNWrapper(
             weights_path=weights_path,
             label_map_path=label_map_path,
-            num_class = classes
+            num_class = self.classes
         )
 
         print(f"✅ Модель ST-GCN загружена через обертку. Веса: {weights_path}")
@@ -530,38 +530,56 @@ class STGCN_model:
             29: 16, # right_ear → REar
             28: 17  # left_ear → LEar
         }
+        if self.classes == 60:
+            #Временная заглушка для NTU RGB-D
+            W, H = 1920, 1080
+            wh = np.array([W, H], dtype=np.float32)
 
-        # Собираем все координаты для нормализации
-        all_x = []
-        all_y = []
-        for t, pose in enumerate(poses):
-            for our_idx, op_idx in JOINT_MAP.items():
-                if our_idx < len(pose.keypoints):
-                    x, y = pose.keypoints[our_idx]
-                    score = pose.keypoints_conf[our_idx] if our_idx < len(pose.keypoints_conf) else 0.0
-                    if score > 0:
-                        all_x.append(x)
-                        all_y.append(y)
+            for t, pose in enumerate(poses):
+                for our_idx, op_idx in JOINT_MAP.items():
+                    if our_idx < len(pose.keypoints):
+                        x, y = pose.keypoints[our_idx]
+                        score = pose.keypoints_conf[our_idx] if our_idx < len(pose.keypoints_conf) else 0.0
+                        xy = np.array([x, y], dtype=np.float32)
+                        coords = (xy / wh) - 0.5
+                        if score < 1e-6:
+                            coords[:] = 0.0
+                        data[0, t, op_idx, 0] = coords[0]
+                        data[1, t, op_idx, 0] = coords[1]
+                        data[2, t, op_idx, 0] = 1.0 if score > 1e-6 else 0.0
 
-        # Вычисляем диапазон
-        if all_x and all_y:
-            min_x, max_x = min(all_x), max(all_x)
-            min_y, max_y = min(all_y), max(all_y)
-            range_x = max_x - min_x if max_x != min_x else 1.0
-            range_y = max_y - min_y if max_y != min_y else 1.0
         else:
-            min_x = min_y = 0.0
-            range_x = range_y = 1.0
+            # Собираем все координаты для нормализации
+            all_x = []
+            all_y = []
+            for t, pose in enumerate(poses):
+                for our_idx, op_idx in JOINT_MAP.items():
+                    if our_idx < len(pose.keypoints):
+                        x, y = pose.keypoints[our_idx]
+                        score = pose.keypoints_conf[our_idx] if our_idx < len(pose.keypoints_conf) else 0.0
+                        if score > 0:
+                            all_x.append(x)
+                            all_y.append(y)
 
-        # Заполняем и нормализуем данные
-        for t, pose in enumerate(poses):
-            for our_idx, op_idx in JOINT_MAP.items():
-                if our_idx < len(pose.keypoints):
-                    x, y = pose.keypoints[our_idx]
-                    score = pose.keypoints_conf[our_idx] if our_idx < len(pose.keypoints_conf) else 0.0
-                    data[0, t, op_idx, 0] = (x - min_x) / range_x - 0.5  # Нормализация x
-                    data[1, t, op_idx, 0] = (y - min_y) / range_y - 0.5  # Нормализация y
-                    data[2, t, op_idx, 0] = score
+            # Вычисляем диапазон
+            if all_x and all_y:
+                min_x, max_x = min(all_x), max(all_x)
+                min_y, max_y = min(all_y), max(all_y)
+                range_x = max_x - min_x if max_x != min_x else 1.0
+                range_y = max_y - min_y if max_y != min_y else 1.0
+            else:
+                min_x = min_y = 0.0
+                range_x = range_y = 1.0
+
+            # Заполняем и нормализуем данные
+            for t, pose in enumerate(poses):
+                for our_idx, op_idx in JOINT_MAP.items():
+                    if our_idx < len(pose.keypoints):
+                        x, y = pose.keypoints[our_idx]
+                        score = pose.keypoints_conf[our_idx] if our_idx < len(pose.keypoints_conf) else 0.0
+                        data[0, t, op_idx, 0] = (x - min_x) / range_x - 0.5  # Нормализация x
+                        data[1, t, op_idx, 0] = (y - min_y) / range_y - 0.5  # Нормализация y
+                        data[2, t, op_idx, 0] = score
 
         # Добавляем batch dimension → (1, C, T, V, M)
         return data[np.newaxis, :, :, :, :]
