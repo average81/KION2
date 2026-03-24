@@ -73,7 +73,7 @@ class VideoProcessor:
             self.pose_extractor = None
             self.pose_action_classifier = None
 
-        if self.config["multimodal_model"] is not None:
+        if self.config.get("multimodal_model", None) is not None:
             self.mult_modl_clssfr = MultimodalActionClassificator(
                 self.config["multimodal_model"],
                 self.config["video_decimation"],

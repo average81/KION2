@@ -441,7 +441,7 @@ class STGCN_model:
 
         print(f"✅ Модель ST-GCN загружена через обертку. Веса: {weights_path}")
 
-    def predict(self, poses: List[Dict]) -> Dict[str, Any]:
+    def predict(self, poses: List[Dict]):
         """
         Выполняет предсказание действия по последовательности поз.
 
@@ -453,7 +453,7 @@ class STGCN_model:
             Dict: Результат с action_id, action_name и conf.
         """
         if len(poses) == 0:
-            return {"action_id": -1, "action_name": "no pose", "conf": 0.0}
+            return {"action_id": -1, "action_name": "no pose", "conf": 0.0}, None
 
         # Преобразуем poses в тензор data_numpy формы (1, 3, T, V, M)
         data_numpy = self._poses_to_numpy(poses)

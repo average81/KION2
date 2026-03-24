@@ -62,7 +62,8 @@ class PoseActionClassificator:
     def classify_one(self, poses):
         self.logger.info(f"Classifying {len(poses)} poses.")
         action,raw = self.model.predict(poses)
-
+        if raw is None:
+            return  None, None
         return  {
                 "frame_idx": poses[0].frame_idx,
                 "person_id": poses[0].id,
@@ -100,8 +101,9 @@ class PoseActionClassificator:
                 for i in range(len(batch) // self.action_period + 1):
                     sequence = batch[i*self.action_period:(i+1)*self.action_period ]
                     result,raw = self.classify_one(sequence)
-                    results.append(result)
-                    raw_res.append(raw)
+                    if result is not None:
+                        results.append(result)
+                        raw_res.append(raw)
             else:
                 self.logger.info(f"Person ID {batch[0].id} has only {len(batch)} frames, which is less than min_pose_frames={self.min_pose_frames}. Skipping classification.")
 

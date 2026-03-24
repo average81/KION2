@@ -1,6 +1,6 @@
 act_frames: 120 #Сколько кадров брать для распознавания поз и действий на их очнове
-batch_size: 16 #Размер батча пакетной обработки кадров
-multimodal_model: TST #название мультимодальной модели распознания действий (не реализовано)
+batch_size: 128 #Размер батча пакетной обработки кадров
+#multimodal_model: TST #название мультимодальной модели распознания действий (не реализовано)
 pose_action_model: STGCN_model_kinetics # название модели распознания действий по позам (STGCN_model_rgbd, STGCN_model_kinetics, Conv3dNet, LSTMSkeletonNet)
 pose_ext_model: YOLOv26-Pose-N # Название модели распознавания поз (YOLOv8-Pose-N, YOLOv8-Pose-S, YOLOv26-Pose-N)
 video_decimation: 1 # степень прореживания кадров (может ускорить обработку, но уменьшить точность)
