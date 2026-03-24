@@ -1,0 +1,34 @@
+# VCS
+.git
+.gitignore
+.gitattributes
+.idea
+
+
+
+# IDE
+.idea
+.vscode
+.cursorindexingignore
+.gigaide
+.specstory
+
+# Виртуальные окружения
+.venv
+venv
+env
+ENV
+
+# Кеши Python
+__pycache__/
+**/__pycache__/
+*.py[cod]
+
+
+# Логи, временные файлы
+*.log
+*.tmp
+
+# Артефакты данных/выводов 
+*.avi
+*.mp4
