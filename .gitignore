@@ -7,6 +7,18 @@ outputs/*
 !outputs/.gitkeep
 /tests/video_samples
 /tests/outputs
+
+# Игнорировать все pyc-файлы
+*.pyc
 __pycache__
 /tests/runs
 /tests/models
+
+# Игнорировать прочие кэши Python
+*.py[co]
+*.pyc
+*.pyc
+*.pyo
+*.pyd
+*$py.class
+app/__pycache__/pose_estimator.cpython-311.pyc

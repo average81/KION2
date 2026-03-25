@@ -103,7 +103,7 @@ def main():
     parser.add_argument(
         "--labels-file",
         type=str,
-        default="app/stgcn/kinetics400-id2label.txt",
+        default="models/stgcn/kinetics400-id2label.txt",
         help="Путь к id2label (Kinetics).",
     )
     parser.add_argument(
