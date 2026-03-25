@@ -9,7 +9,7 @@ action_models = {
                                                      "num_classes": 60,'fusion':'attention',
                                                      "hidden_size": 256, "num_layers": 2,
                                                      "bodies":2,"dropout": 0.4}},
-    "STGCN_model_kinetics": {"model":STGCN_model , "params": {"weights": "models/st_gcn.kinetics.pt","num_classes": 400,
+    "STGCN_model_kinetics": {"model":STGCN_model , "params": {"weights": "models/st_gcn.kinetics.pth","num_classes": 400,
                                                      "label_map_path": "models/stgcn/kinetics400-id2label.txt",
                                                                  'mapping':STGN_ACTIONS_MAPPING }},
     "STGCN_model_rgbd": {"model":STGCN_model , "params": {"weights": "models/st_gcn.ntu60.pt","num_classes": 60,

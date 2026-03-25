@@ -511,7 +511,7 @@ class STGCN_model:
 
         # Индексы из JOINTS в pose_format.py → OpenPose индексы
         JOINT_MAP = {
-            25: 0,  # nose → Nose
+            3: 0,  # head → Nose
             2: 1,   # neck → Neck
             8: 2,   # right_shoulder → RShoulder
             9: 3,   # right_elbow → RElbow
