@@ -128,11 +128,21 @@ def normalize_skeleton(data):
     if np.max(np.abs(data)) < 1e-6: return data
     # Заменяем NaN на нули
     data = np.nan_to_num(data, nan=0.0)
-    hip = data[:, :, 0, :].copy()
-    data = data - hip[:, :, np.newaxis, :]
-    scale = np.max(data) - np.min(data)
-    if scale > 1e-6: data = (data - data.min()) / scale - 0.5
-    #print(data.shape)
+    # Нормализация по центру таза (первый сустав)
+    hip_indices = [12, 16]
+    hip_centers = np.mean(data[:, :, hip_indices, :], axis=2, keepdims=True)
+    # Создаем маску для ненулевых точек (где хотя бы одна из координат X, Y, Z не равна нулю)
+    non_zero_mask = np.any(data != 0, axis=-1, keepdims=True)
+
+    # Вычитаем центр таза только из ненулевых точек
+    data = np.where(non_zero_mask, data - hip_centers, data)
+    # Масштабирование: вычисляем максимальное расстояние от центра таза до любой точки
+    # Вычисляем расстояния от центра таза до всех точек
+    distances = np.max(np.abs(data), axis=-1)
+    # Максимальное расстояние от центра таза до любой точки - это наш scale
+    scale = np.max(distances) * 2
+    if scale > 1e-6:
+        data = data / scale
     return data
 
 def interpolate_frames(data, target=30):

@@ -7,6 +7,8 @@ from models.stgcn.net.st_gcn import Model
 import numpy as np
 from torch.utils.data import Dataset
 
+DECIMATION = 1
+
 class SkeletonDataset(Dataset):
     def __init__(self, files, skeleton_dir, num_joints, num_person):
         self.files = files
@@ -25,16 +27,13 @@ class SkeletonDataset(Dataset):
         data = self.normalize_skeleton(data)
         data = self.augment_skeleton(data)
 
-        # Интерполяция до 300 кадров (максимальная длина в NTU-RGB+D)
-        if data.shape[0] < 300:
-            data = self.interpolate_frames(data, target=300)
-        elif data.shape[0] > 300:
-            # Случайный кроп из более длинной последовательности
-            start = np.random.randint(0, data.shape[0] - 300 + 1)
-            data = data[start:start + 300]
-
-        # Прореживание до 60 кадров
-        data = data[::5]
+        if len(data) > 120 * DECIMATION:
+            id = np.linspace(0, len(data) - 1, 120 * DECIMATION).astype(int)
+            data = data[id]
+        else:
+            data = self.interpolate_frames(data, target=120 * DECIMATION)
+        # Прореживаем
+        data = data[::DECIMATION]
 
         # Обрезаем или дополняем количество суставов и тел
         data = data[:, :self.num_person, :self.num_joints, :]
@@ -124,7 +123,7 @@ class SkeletonDataset(Dataset):
     def augment_skeleton(self, data, noise_std=0.05):
         flip_prob = 0.2
         noise = np.random.normal(0, noise_std, data.shape).astype(np.float32)
-        scale = np.random.uniform(0.9, 1.1)
+        scale = np.random.uniform(0.7, 1.0)
         data = data * scale
         # Случайное отражение (по оси X)
         if np.random.rand() < flip_prob:
@@ -136,12 +135,21 @@ class SkeletonDataset(Dataset):
             return data
         data = np.nan_to_num(data, nan=0.0)
         # Нормализация по центру таза (первый сустав)
-        hip = data[:, :, 0:1, :].copy()
-        data = data - hip
-        # Масштабирование
-        scale = np.max(np.abs(data)) - np.min(np.abs(data))
+        hip_indices = [8, 11]
+        hip_centers = np.mean(data[:, :, hip_indices, :], axis=2, keepdims=True)
+        
+        # Создаем маску для ненулевых точек (где хотя бы одна из координат X, Y, Z не равна нулю)
+        non_zero_mask = np.any(data != 0, axis=-1, keepdims=True)
+        
+        # Вычитаем центр таза только из ненулевых точек
+        data = np.where(non_zero_mask, data - hip_centers, data)
+        # Масштабирование: вычисляем максимальное расстояние от центра таза до любой точки
+        # Вычисляем расстояния от центра таза до всех точек
+        distances = np.max(np.abs(data), axis=-1)
+        # Максимальное расстояние от центра таза до любой точки - это наш scale
+        scale = np.max(distances)
         if scale > 1e-6:
-            data = (data - np.min(data)) / scale - 0.5
+            data = data / scale
         return data
 
     def interpolate_frames(self, data, target=300):
@@ -279,7 +287,7 @@ class STGCNWrapper:
         if pretrained_weights and os.path.exists(pretrained_weights):
             print(f"🔄 Загружаем предобученные веса из: {pretrained_weights}")
             try:
-                self.load_state_dict(torch.load(pretrained_weights, map_location=self.device))
+                self.model.load_state_dict(torch.load(pretrained_weights, map_location=self.device))
                 print("✅ Веса успешно загружены")
             except Exception as e:
                 print(f"❌ Ошибка при загрузке весов: {e}")

@@ -4,7 +4,7 @@ data:
 training:
   batch_size: 128
   epochs: 50
-  learning_rate: 0.0005
+  learning_rate: 0.001
   weight_decay: 0.01
   num_workers: 10
   pretrained_weights: "models/best_lstm_model.pth"  # или None

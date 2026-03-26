@@ -2,9 +2,9 @@ data:
   skeleton_dir: "C:/Users/above/IdeaProjects/NTU-RGB+D 120/nturgb+d_skeletons" # Путь к директории с .skeleton файлами
 layout: ntu-rgb+d
 training:
-  batch_size: 32
-  epochs: 100
+  batch_size: 128
+  epochs: 0
   learning_rate: 0.001
   weight_decay: 0.01
-  num_workers: 8
-  pretrained_weights: null # Путь к предобученным весам или null
+  num_workers: 10
+  pretrained_weights: models/best_stgcn_model.pth # Путь к предобученным весам или null
