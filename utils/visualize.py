@@ -147,7 +147,6 @@ def draw_actions_on_frame(frame, boxes, actions, min_score: float = 0.5):
         pid = action['person_id']
         if pid not in best_actions or action['action']['conf'] > best_actions[pid]['action']['conf']:
             best_actions[pid] = action
-
     # Фильтруем по min_score
     filtered_actions = {pid: act for pid, act in best_actions.items() if act['action']['conf'] >= min_score}
     #if len(actions) > 0: print(actions)
