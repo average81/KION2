@@ -13,6 +13,8 @@ class conv3DCNN_model:
     def predict(self,poses):
         # Принимает список объектов Pose
         result = self.model.predict(poses)
+        if result is None:
+            return None, None
         action = Action()
         if result['confidence'] > self.threshold:
             action.action_id =result['predicted_class']

@@ -128,6 +128,13 @@ class SkeletonDataset(Dataset):
         # Случайное отражение (по оси X)
         if np.random.rand() < flip_prob:
             data[..., 0] = -data[..., 0]
+        # Случайное обнуление координат одной из ключевых точек
+        T, M, V, C = data.shape
+        for frame_idx in range(T):
+            if np.random.rand() < 0.1:  # 10% вероятность аугментации
+                person_idx = np.random.randint(M)
+                joint_idx = np.random.randint(V)
+                data[frame_idx, person_idx, joint_idx, :] = 0  # Обнуляем X и Y координаты
         return data + noise
 
     def normalize_skeleton(self, data):
@@ -143,13 +150,13 @@ class SkeletonDataset(Dataset):
         
         # Вычитаем центр таза только из ненулевых точек
         data = np.where(non_zero_mask, data - hip_centers, data)
-        # Масштабирование: вычисляем максимальное расстояние от центра таза до любой точки
-        # Вычисляем расстояния от центра таза до всех точек
-        distances = np.max(np.abs(data), axis=-1)
-        # Максимальное расстояние от центра таза до любой точки - это наш scale
-        scale = np.max(distances)
-        if scale > 1e-6:
-            data = data / scale
+        # Масштабирование: вычисляем максимальное расстояние от центра таза до любой точки для каждого тела отдельно
+        for m in range(data.shape[1]):
+            person_data = data[:, m, :, :]
+
+            scale = np.max(person_data)
+            if scale > 1e-6:
+                data[:, m, :, :] = person_data / scale
         return data
 
     def interpolate_frames(self, data, target=300):

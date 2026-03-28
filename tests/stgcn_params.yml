@@ -3,8 +3,8 @@ data:
 layout: ntu-rgb+d
 training:
   batch_size: 128
-  epochs: 0
+  epochs: 50
   learning_rate: 0.001
   weight_decay: 0.01
   num_workers: 10
-  pretrained_weights: models/best_stgcn_model.pth # Путь к предобученным весам или null
+  pretrained_weights: models/st_gcn.ntu60.pth # Путь к предобученным весам или null

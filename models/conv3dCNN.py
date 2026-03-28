@@ -20,7 +20,7 @@ torch.backends.cuda.matmul.allow_tf32 = True
 # КОНФИГУРАЦИЯ
 # ==============================================================================
 class Config:
-    SKELETON_DIR = 'data/nturgbd/skeletons/nturgb+d_skeletons'
+    SKELETON_DIR = 'C:/Users/above/IdeaProjects/NTU-RGB+D 120/nturgb+d_skeletons'
     NUM_JOINTS = 25
     NUM_COORDS = 3
     NUM_CLASSES = 60
@@ -98,19 +98,25 @@ def parse_skeleton(filepath, max_bodies=4, target_frames=100):
 def normalize_skeleton(data):
     if np.max(np.abs(data)) < 1e-6:
         return data
-    
-    T, M, V, C = data.shape
-    normalized = np.zeros_like(data)
-    
-    for m in range(M):
-        hip = data[:, m, 0, :].copy()
-        person_data = data[:, m, :, :] - hip[:, np.newaxis, :]
-        scale = np.max(np.abs(person_data))
+
+    # Заменяем NaN на нули
+    data = np.nan_to_num(data, nan=0.0)
+    # Нормализация по центру таза (первый сустав)
+    hip_indices = [12, 16]
+    hip_centers = np.mean(data[:, :, hip_indices, :], axis=2, keepdims=True)
+    # Создаем маску для ненулевых точек (где хотя бы одна из координат X, Y, Z не равна нулю)
+    non_zero_mask = np.any(data != 0, axis=-1, keepdims=True)
+
+    # Вычитаем центр таза только из ненулевых точек
+    data = np.where(non_zero_mask, data - hip_centers, data)
+    # Масштабирование: вычисляем максимальное расстояние от центра таза до любой точки для каждого тела отдельно
+    for m in range(data.shape[1]):
+        person_data = data[:, m, :, :]
+
+        scale = np.max(person_data)
         if scale > 1e-6:
-            person_data = person_data / scale
-        normalized[:, m, :, :] = person_data
-    
-    return normalized
+            data[:, m, :, :] = person_data / scale
+    return data
 
 def interpolate_frames(data, target=100):
     T, M, V, C = data.shape
@@ -360,6 +366,8 @@ class ImprovedSkeletonNet(nn.Module):
                 sequence.append(frame_joints[:self.bodies])
 
             data = np.array(sequence, dtype=np.float32)
+        elif isinstance(data, list) and len(data) == 0:
+            return None
         else:
             raise TypeError(f"Неподдерживаемый тип данных: {type(data)}")
 
@@ -430,7 +438,7 @@ class ImprovedSkeletonNet(nn.Module):
 # ТРЕНИРОВКА
 # ==============================================================================
 def train(config):
-
+    config = Config()
     skeleton_dir = config.SKELETON_DIR
     
     if not os.path.exists(skeleton_dir):

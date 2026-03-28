@@ -75,7 +75,8 @@ CLASSES = [
     "walking towards each other",
     "walking apart from each other"
 ]
-DECIMATION = 2
+DECIMATION = 1
+FRAMES = 120
 # %%
 # ==============================================================================
 # 2. ФУНКЦИИ ОБРАБОТКИ ДАННЫХ (без изменений)
@@ -119,6 +120,13 @@ def augment_skeleton(data, noise_std=0.05):
     # Случайное отражение (по оси X) — только если действия симметричны
     if random.random() < flip_prob:
         data[..., 0] = -data[..., 0]  # инвертируем X координату
+        # Случайное обнуление координат одной из ключевых точек
+        T, M, V, C = data.shape
+        for frame_idx in range(T):
+            if np.random.rand() < 0.1:  # 10% вероятность аугментации
+                person_idx = np.random.randint(M)
+                joint_idx = np.random.randint(V)
+                data[frame_idx, person_idx, joint_idx, :] = 0  # Обнуляем X и Y координаты
     t = np.random.randint(1, 10)
     data = data[:-t]
     noise = noise[:-t]
@@ -136,13 +144,13 @@ def normalize_skeleton(data):
 
     # Вычитаем центр таза только из ненулевых точек
     data = np.where(non_zero_mask, data - hip_centers, data)
-    # Масштабирование: вычисляем максимальное расстояние от центра таза до любой точки
-    # Вычисляем расстояния от центра таза до всех точек
-    distances = np.max(np.abs(data), axis=-1)
-    # Максимальное расстояние от центра таза до любой точки - это наш scale
-    scale = np.max(distances) * 2
-    if scale > 1e-6:
-        data = data / scale
+    # Масштабирование: вычисляем максимальное расстояние от центра таза до любой точки для каждого тела отдельно
+    for m in range(data.shape[1]):
+        person_data = data[:, m, :, :]
+
+        scale = np.max(person_data)
+        if scale > 1e-6:
+            data[:, m, :, :] = person_data / scale
     return data
 
 def interpolate_frames(data, target=30):
@@ -183,11 +191,11 @@ class SkeletonDataset(Dataset):
         data = augment_skeleton(data)
         #print(data.min(),data.max())
         #если кадров в файле больше 60 * DECIMATION, то берем случайно 60 * DECIMATION последовательных
-        if len(data) > 60 * DECIMATION:
-            id = np.linspace(0, len(data) - 1, 60 * DECIMATION).astype(int)
+        if len(data) > FRAMES * DECIMATION:
+            id = np.linspace(0, len(data) - 1, FRAMES * DECIMATION).astype(int)
             data = data[id]
         else:
-            data = interpolate_frames(data, target=60 * DECIMATION)
+            data = interpolate_frames(data, target=FRAMES * DECIMATION)
         # Прореживаем кадры до 60
         data = data[::DECIMATION]
 
