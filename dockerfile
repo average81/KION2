@@ -49,13 +49,22 @@ RUN apt-get -o Acquire::Check-Valid-Until=false -o Acquire::Check-Date=false upd
 
 RUN python3.11 -m pip install --upgrade pip
 
+# Создаем директорию для конфигурации Ultralytics
+RUN mkdir -p /root/.config/Ultralytics && \
+    chmod -R 777 /root/.config/Ultralytics
+
 WORKDIR /app
 
 # Копируем установленный PyTorch и остальные пакеты из builder
 COPY --from=builder /usr/local /usr/local
 
+# собираем "самодостаточный" образ файлы копируем в образ
+COPY . .
 
-# Образ содержит только систему, Python, torch, зависимости.
-# Код монтируется томом, поэтому внутрь на этапе сборки не копируется.
-# Но если нужно собрать "самодостаточный" образ, раскомментировать следующую строку:
-# COPY . .
+
+# Унифицированный python
+RUN ln -sf /usr/bin/python3.11 /usr/bin/python
+
+# Удобный запуск по умолчанию
+CMD ["python", "action_detector.py", "--help"]
+
